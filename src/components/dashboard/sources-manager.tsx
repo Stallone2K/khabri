@@ -56,12 +56,27 @@ export const SourcesManager = () => {
 	};
 
 	const handleDeleteSource = async (sourceId: string) => {
+		// --- Optimistic UI Update ---
+		// 1. Keep a copy of the current sources in case we need to revert.
+		const originalSources = [...sources];
+
+		// 2. Immediately remove the source from the UI.
+		setSources(sources.filter(source => source.id !== sourceId));
+
 		try {
-			await fetch(`/api/sources?id=${sourceId}`, {
+			// 3. Make the API call in the background.
+			const res = await fetch(`/api/sources?id=${sourceId}`, {
 				method: 'DELETE',
 			});
-			await fetchSources(); // Refresh the list after deleting
+
+			// 4. If the API call fails, revert the change and show an error.
+			if (!res.ok) {
+				setSources(originalSources);
+				setError("Failed to delete source. Please try again.");
+			}
 		} catch (err: any) {
+			// Also revert on network errors.
+			setSources(originalSources);
 			setError(err.message);
 		}
 	};
