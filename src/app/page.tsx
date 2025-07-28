@@ -3,7 +3,11 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { LoginPage } from '@/components/auth/auth';
+// Update the path below to the correct location of LoginPage, for example:
+import { LoginPage } from '../components/auth/auth';
+// If the filename is different, adjust accordingly, e.g.:
+// import { LoginPage } from '@/components/auth/login-page';
+// Make sure the file exists at the specified path.
 import { Loader2 } from 'lucide-react';
 
 export default function Home() {

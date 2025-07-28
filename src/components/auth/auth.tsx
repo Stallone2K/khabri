@@ -1,6 +1,6 @@
 'use client';
 import { signIn } from 'next-auth/react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../ui/button';
 import { LogIn } from 'lucide-react';
 import React from 'react';
 

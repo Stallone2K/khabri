@@ -1,8 +1,10 @@
+
 'use client';
+
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, MinusCircle, Loader2 } from 'lucide-react';
 
 type Source = { id: string; name: string; url: string; };
 
@@ -35,13 +37,30 @@ export const SourcesManager = () => {
 		if (!newSourceUrl) return;
 		setError(null);
 		try {
-			await fetch('/api/sources', {
+			const res = await fetch('/api/sources', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ url: newSourceUrl, type: 'RSS' }),
 			});
+
+			if (!res.ok) {
+				const errData = await res.json();
+				throw new Error(errData.error || 'Failed to add source');
+			}
+
 			setNewSourceUrl('');
-			await fetchSources();
+			await fetchSources(); // Refresh the list after adding
+		} catch (err: any) {
+			setError(err.message);
+		}
+	};
+
+	const handleDeleteSource = async (sourceId: string) => {
+		try {
+			await fetch(`/api/sources?id=${sourceId}`, {
+				method: 'DELETE',
+			});
+			await fetchSources(); // Refresh the list after deleting
 		} catch (err: any) {
 			setError(err.message);
 		}
@@ -54,7 +73,7 @@ export const SourcesManager = () => {
 					type="url"
 					value={newSourceUrl}
 					onChange={(e) => setNewSourceUrl(e.target.value)}
-					placeholder="https://example.com/rss.xml"
+					placeholder="[https://example.com/rss.xml](https://example.com/rss.xml)"
 				/>
 				<Button type="submit" size="icon"><Plus className="h-4 w-4" /></Button>
 			</form>
@@ -71,7 +90,9 @@ export const SourcesManager = () => {
 								<p className="font-medium">{source.name}</p>
 								<p className="text-xs text-muted-foreground">{source.url}</p>
 							</div>
-							{/* Note: Delete functionality can be added here later */}
+							<Button variant="ghost" size="icon" onClick={() => handleDeleteSource(source.id)}>
+								<MinusCircle className="h-5 w-5 text-red-500" />
+							</Button>
 						</div>
 					))
 				)}
