@@ -13,9 +13,7 @@ export const LoginPage = () => (
 			No Fairytale Stories, Just Real-Time News And Trends
 		</p>
 		<Button onClick={() => signIn('google')} size="lg" className="mt-8">
-			<LogIn className="mr-2 h-5 w-5" /> Sign In with Google
+			<LogIn className="mr-2 h-5 w-5" /> Sign In With Google
 		</Button>
 	</div>
 );
-
-
