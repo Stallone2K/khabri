@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
 const prisma = new PrismaClient();
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user?.id) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -18,27 +18,39 @@ export async function GET() {
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const [
-      articlesToday,
+      signalsIngested,
       topKeywordsResult,
       onTheRiseResult,
       mostActiveSourceResult,
     ] = await Promise.all([
       prisma.article.count({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
+        where: {
+          source: { userId: session.user.id },
+          createdAt: { gte: twentyFourHoursAgo },
+        },
       }),
       prisma.trendDataPoint.groupBy({
         by: ["keyword"],
-        where: { timestamp: { gte: sevenDaysAgo } },
+        where: {
+          timestamp: { gte: sevenDaysAgo },
+          userId: session.user.id,
+        },
         _sum: { count: true },
         orderBy: { _sum: { count: "desc" } },
         take: 5,
       }),
       prisma.trendDataPoint.findMany({
-        where: { timestamp: { gte: fortyEightHoursAgo } },
+        where: {
+          timestamp: { gte: fortyEightHoursAgo },
+          userId: session.user.id,
+        },
       }),
       prisma.article.groupBy({
         by: ["sourceId"],
-        where: { createdAt: { gte: twentyFourHoursAgo } },
+        where: {
+          source: { userId: session.user.id },
+          createdAt: { gte: twentyFourHoursAgo },
+        },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 1,
@@ -75,7 +87,6 @@ export async function GET() {
     });
 
     // --- Fallback logic for "On the Rise" ---
-    // If no rising trend was found (e.g., in the first 24h), find today's most mentioned keyword.
     if (onTheRiseKeyword.keyword === "N/A" && recentCounts.size > 0) {
       let topTodayKeyword = "N/A";
       let maxCount = 0;
@@ -106,7 +117,7 @@ export async function GET() {
       topKeywords: topKeywordsResult.map((k) => k.keyword),
       onTheRise: onTheRiseKeyword,
       mostActiveSource: mostActiveSource,
-      signalsIngested: articlesToday,
+      signalsIngested: signalsIngested,
     });
   } catch (error) {
     console.error("Failed to retrieve stat card data:", error);

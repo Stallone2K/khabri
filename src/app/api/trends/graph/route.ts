@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
 const prisma = new PrismaClient();
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user?.id) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    // --- 1. Find the Top 5 Trending Keywords in the last 48 hours ---
+    // --- 1. Find the Top 5 Trending Keywords in the last 48 hours for this user ---
     const fortyEightHoursAgo = new Date(
       new Date().getTime() - 48 * 60 * 60 * 1000
     );
@@ -20,6 +20,7 @@ export async function GET() {
       by: ["keyword"],
       where: {
         timestamp: { gte: fortyEightHoursAgo },
+        userId: session.user.id, // Filter by the logged-in user
       },
       _sum: {
         count: true,
@@ -34,6 +35,10 @@ export async function GET() {
 
     const topKeywords = topKeywordsResult.map((k) => k.keyword);
 
+    if (topKeywords.length === 0) {
+      return NextResponse.json({ keywords: [], data: [] });
+    }
+
     // --- 2. Get all historical data for ONLY those top 5 keywords for the last 30 days ---
     const thirtyDaysAgo = new Date(
       new Date().getTime() - 30 * 24 * 60 * 60 * 1000
@@ -42,6 +47,7 @@ export async function GET() {
       where: {
         keyword: { in: topKeywords },
         timestamp: { gte: thirtyDaysAgo },
+        userId: session.user.id, // Filter by the logged-in user
       },
       orderBy: {
         timestamp: "asc",

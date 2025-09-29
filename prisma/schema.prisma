@@ -1,4 +1,3 @@
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -34,17 +33,19 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  sources       Source[] // Users manage their own sources
-  userArticles  UserArticleState[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String           @id @default(cuid())
+  name            String?
+  email           String?          @unique
+  emailVerified   DateTime?
+  image           String?
+  accounts        Account[]
+  sessions        Session[]
+  sources         Source[]
+  userArticles    UserArticleState[]
+  // This new line creates the necessary connection to the user's trend data.
+  trendDataPoints TrendDataPoint[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model VerificationToken {
@@ -54,20 +55,19 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// Simplified SourceType enum
 enum SourceType {
   RSS
 }
 
 model Source {
-  id          String     @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   url         String
   name        String
   type        SourceType
   lastFetched DateTime?
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime  @default(now())
   articles    Article[]
 }
 
@@ -87,13 +87,13 @@ model Article {
 }
 
 model ArticleAnalysis {
-  id         String   @id @default(cuid())
-  articleId  String   @unique
-  article    Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  summary    String?  @db.Text
-  keywords   String[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  articleId String   @unique
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  summary   String?  @db.Text
+  keywords  String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model UserArticleState {
@@ -113,7 +113,11 @@ model TrendDataPoint {
   timestamp DateTime
   count     Int
   createdAt DateTime @default(now())
-  @@unique([keyword, timestamp])
+
+  // These new lines add the connection to the User model.
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // This updates the unique constraint to be per-user, which is more robust.
+  @@unique([keyword, timestamp, userId], name: "keyword_timestamp_userId")
 }
-
-
