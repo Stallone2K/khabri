@@ -36,11 +36,22 @@ export const SourcesManager = () => {
 		e.preventDefault();
 		if (!newSourceUrl) return;
 		setError(null);
+
 		try {
+			// --- FIX: Auto-generate a name from the URL ---
+			let name = 'New Source';
+			try {
+				const urlObj = new URL(newSourceUrl);
+				name = urlObj.hostname.replace('www.', '');
+			} catch (e) {
+				// If URL is invalid, keep default name
+			}
+
 			const res = await fetch('/api/sources', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url: newSourceUrl, type: 'RSS' }),
+				// We now include the 'name' in the body
+				body: JSON.stringify({ url: newSourceUrl, name: name, type: 'RSS' }),
 			});
 
 			if (!res.ok) {
@@ -49,33 +60,28 @@ export const SourcesManager = () => {
 			}
 
 			setNewSourceUrl('');
-			await fetchSources(); // Refresh the list after adding
+			await fetchSources();
 		} catch (err: any) {
 			setError(err.message);
 		}
 	};
 
 	const handleDeleteSource = async (sourceId: string) => {
-		// --- Optimistic UI Update ---
-		// 1. Keep a copy of the current sources in case we need to revert.
 		const originalSources = [...sources];
-
-		// 2. Immediately remove the source from the UI.
 		setSources(sources.filter(source => source.id !== sourceId));
 
 		try {
-			// 3. Make the API call in the background.
-			const res = await fetch(`/api/sources?id=${sourceId}`, {
+			const res = await fetch(`/api/sources`, { // Note: DELETE typically uses body or query param depending on implementation
 				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: sourceId }) // Sending ID in body as per previous backend code
 			});
 
-			// 4. If the API call fails, revert the change and show an error.
 			if (!res.ok) {
 				setSources(originalSources);
 				setError("Failed to delete source. Please try again.");
 			}
 		} catch (err: any) {
-			// Also revert on network errors.
 			setSources(originalSources);
 			setError(err.message);
 		}
@@ -88,7 +94,7 @@ export const SourcesManager = () => {
 					type="url"
 					value={newSourceUrl}
 					onChange={(e) => setNewSourceUrl(e.target.value)}
-					placeholder="[https://example.com/rss.xml](https://example.com/rss.xml)"
+					placeholder="https://example.com/rss.xml"
 				/>
 				<Button type="submit" size="icon"><Plus className="h-4 w-4" /></Button>
 			</form>
@@ -106,7 +112,7 @@ export const SourcesManager = () => {
 								<p className="text-xs text-muted-foreground">{source.url}</p>
 							</div>
 							<Button variant="ghost" size="icon" onClick={() => handleDeleteSource(source.id)}>
-								<MinusCircle className="h-5 w-5 text-red-500" />
+								<MinusCircle className="h-5 w-5 text-destructive" />
 							</Button>
 						</div>
 					))
@@ -115,3 +121,4 @@ export const SourcesManager = () => {
 		</div>
 	);
 };
+
