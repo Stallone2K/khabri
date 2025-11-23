@@ -76,20 +76,22 @@ async function updateTrendData(
 }
 
 export async function GET(request: Request) {
-  // Vercel Cron sends requests with special headers
+  // Get headers for logging and authentication
   const authHeader = request.headers.get("authorization");
-  const vercelCronHeader = request.headers.get("x-vercel-cron");
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  const origin = request.headers.get("origin") || "unknown";
 
   // In production, verify the request is authorized
-  // Vercel Cron automatically adds the Authorization header with Bearer token
   if (process.env.NODE_ENV === "production") {
     const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
 
     if (authHeader !== expectedAuth) {
       console.error("❌ Unauthorized ingest attempt", {
         hasAuthHeader: !!authHeader,
-        hasVercelCronHeader: !!vercelCronHeader,
-        nodeEnv: process.env.NODE_ENV,
+        authHeaderMatch: authHeader === expectedAuth,
+        userAgent,
+        origin,
+        timestamp: new Date().toISOString(),
       });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -97,21 +99,40 @@ export async function GET(request: Request) {
 
   console.log("📰 Starting RSS Ingestion job...", {
     timestamp: new Date().toISOString(),
-    isVercelCron: !!vercelCronHeader,
+    triggeredBy: userAgent,
+    environment: process.env.NODE_ENV,
   });
 
   let articlesAdded = 0;
   const prisma = new PrismaClient();
-  const parser = new Parser();
+  const parser = new Parser({
+    timeout: 10000, // 10 second timeout for each feed
+    headers: {
+      "User-Agent": "Khabri RSS Reader/1.0",
+    },
+  });
 
   try {
     const sources = await prisma.source.findMany({ where: { type: "RSS" } });
     console.log(`📡 Found ${sources.length} RSS sources to process`);
 
+    if (sources.length === 0) {
+      console.log("⚠️ No RSS sources found. Add sources to start ingestion.");
+      await prisma.$disconnect();
+      return NextResponse.json({
+        success: true,
+        articlesAdded: 0,
+        message: "No RSS sources configured",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     for (const source of sources) {
       try {
-        console.log(`Processing feed: ${source.name} (${source.url})`);
+        console.log(`🔄 Processing feed: ${source.name} (${source.url})`);
         const feed = await parser.parseURL(source.url);
+
+        let sourceArticlesAdded = 0;
 
         for (const item of feed.items) {
           if (!item.guid || !item.link || !item.title || !item.isoDate) {
@@ -136,9 +157,8 @@ export async function GET(request: Request) {
               },
             });
             articlesAdded++;
-            console.log(
-              `✅ Added new article: "${item.title.substring(0, 50)}..."`
-            );
+            sourceArticlesAdded++;
+            console.log(`  ✅ Added: "${item.title.substring(0, 60)}..."`);
 
             // Analyze article with AI
             const analysisResult = await analyzeArticleWithAI(
@@ -165,25 +185,45 @@ export async function GET(request: Request) {
           data: { lastFetched: new Date() },
         });
 
-        console.log(`✅ Finished processing ${source.name}`);
+        console.log(
+          `  ✅ ${source.name}: Added ${sourceArticlesAdded} new articles`
+        );
       } catch (feedError: any) {
         console.error(
-          `❌ Failed to process feed for ${source.name} (${source.url}). Error: ${feedError.message}`
+          `  ❌ Failed to process ${source.name} (${source.url}):`,
+          feedError.message
         );
+        // Continue with next source even if one fails
       }
     }
 
     await prisma.$disconnect();
 
-    console.log(`✅ RSS job finished. Ingested ${articlesAdded} new articles.`);
+    const successMessage =
+      articlesAdded > 0
+        ? `Successfully ingested ${articlesAdded} new articles`
+        : "No new articles found";
+
+    console.log(`✅ RSS job finished: ${successMessage}`);
+
     return NextResponse.json({
       success: true,
       articlesAdded,
+      message: successMessage,
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
-    console.error("❌ A CRITICAL ERROR OCCURRED IN THE INGESTION JOB", error);
-    await prisma.$disconnect();
+    console.error("❌ CRITICAL ERROR IN INGESTION JOB:", {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      await prisma.$disconnect();
+    } catch (disconnectError) {
+      console.error("Error disconnecting Prisma:", disconnectError);
+    }
 
     return NextResponse.json(
       {
