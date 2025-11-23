@@ -79,20 +79,22 @@ export async function GET(request: Request) {
   // Get headers for logging and authentication
   const authHeader = request.headers.get("authorization");
   const userAgent = request.headers.get("user-agent") || "unknown";
-  const origin = request.headers.get("origin") || "unknown";
+
+  // Log what we're comparing (TEMPORARY - for debugging)
+  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+  console.log("🔍 DEBUG INFO:", {
+    receivedAuthHeader: authHeader,
+    expectedAuthHeader: expectedAuth,
+    doTheyMatch: authHeader === expectedAuth,
+    cronSecretExists: !!process.env.CRON_SECRET,
+    cronSecretLength: process.env.CRON_SECRET?.length,
+    nodeEnv: process.env.NODE_ENV,
+  });
 
   // In production, verify the request is authorized
   if (process.env.NODE_ENV === "production") {
-    const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-
     if (authHeader !== expectedAuth) {
-      console.error("❌ Unauthorized ingest attempt", {
-        hasAuthHeader: !!authHeader,
-        authHeaderMatch: authHeader === expectedAuth,
-        userAgent,
-        origin,
-        timestamp: new Date().toISOString(),
-      });
+      console.error("❌ Unauthorized ingest attempt");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
