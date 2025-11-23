@@ -2,12 +2,11 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import Parser from "rss-parser";
 
-// --- Helper for AI analysis (unchanged) ---
+// --- Helper for AI analysis ---
 async function analyzeArticleWithAI(
   articleContent: string,
   articleTitle: string
 ): Promise<{ summary: string; keywords: string[] }> {
-  // ... (code is unchanged)
   const prompt = `Analyze the following article content. 1. Provide a concise, one-paragraph summary. 2. Extract the 5 most important keywords or topics as a JavaScript array of strings. Your response MUST be a valid JSON object with the keys "summary" and "keywords". Article Content: --- ${articleContent.substring(
     0,
     8000
@@ -43,10 +42,13 @@ async function analyzeArticleWithAI(
   }
 }
 
-// --- Helper for Trend Data (UPDATED to accept userId) ---
-async function updateTrendData(keywords: string[], userId: string) {
+// --- Helper for Trend Data ---
+async function updateTrendData(
+  keywords: string[],
+  userId: string,
+  prisma: PrismaClient
+) {
   if (keywords.length === 0) return;
-  const prisma = new PrismaClient();
   const now = new Date();
   const timestamp = new Date(
     now.getFullYear(),
@@ -55,45 +57,72 @@ async function updateTrendData(keywords: string[], userId: string) {
     now.getHours()
   );
   for (const keyword of keywords) {
-    await prisma.trendDataPoint.upsert({
-      where: {
-        keyword_timestamp_userId: {
-          keyword: keyword.toLowerCase(),
-          timestamp,
-          userId,
+    try {
+      await prisma.trendDataPoint.upsert({
+        where: {
+          keyword_timestamp_userId: {
+            keyword: keyword.toLowerCase(),
+            timestamp,
+            userId,
+          },
         },
-      },
-      update: { count: { increment: 1 } },
-      create: { keyword: keyword.toLowerCase(), timestamp, count: 1, userId },
-    });
+        update: { count: { increment: 1 } },
+        create: { keyword: keyword.toLowerCase(), timestamp, count: 1, userId },
+      });
+    } catch (error) {
+      console.error(`Failed to update trend for keyword "${keyword}":`, error);
+    }
   }
 }
 
 export async function GET(request: Request) {
-  // ... (Security checks are unchanged)
-  if (process.env.NODE_ENV !== "development") {
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Vercel Cron sends requests with special headers
+  const authHeader = request.headers.get("authorization");
+  const vercelCronHeader = request.headers.get("x-vercel-cron");
+
+  // In production, verify the request is authorized
+  // Vercel Cron automatically adds the Authorization header with Bearer token
+  if (process.env.NODE_ENV === "production") {
+    const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+
+    if (authHeader !== expectedAuth) {
+      console.error("❌ Unauthorized ingest attempt", {
+        hasAuthHeader: !!authHeader,
+        hasVercelCronHeader: !!vercelCronHeader,
+        nodeEnv: process.env.NODE_ENV,
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
 
-  console.log("📰 Starting RSS Ingestion job...");
+  console.log("📰 Starting RSS Ingestion job...", {
+    timestamp: new Date().toISOString(),
+    isVercelCron: !!vercelCronHeader,
+  });
+
   let articlesAdded = 0;
   const prisma = new PrismaClient();
   const parser = new Parser();
 
   try {
     const sources = await prisma.source.findMany({ where: { type: "RSS" } });
+    console.log(`📡 Found ${sources.length} RSS sources to process`);
+
     for (const source of sources) {
       try {
+        console.log(`Processing feed: ${source.name} (${source.url})`);
         const feed = await parser.parseURL(source.url);
+
         for (const item of feed.items) {
-          if (!item.guid || !item.link || !item.title || !item.isoDate)
+          if (!item.guid || !item.link || !item.title || !item.isoDate) {
+            console.log(`⚠️ Skipping incomplete item from ${source.name}`);
             continue;
+          }
+
           const existingArticle = await prisma.article.findUnique({
             where: { guid: item.guid },
           });
+
           if (!existingArticle) {
             const newArticle = await prisma.article.create({
               data: {
@@ -107,33 +136,61 @@ export async function GET(request: Request) {
               },
             });
             articlesAdded++;
+            console.log(
+              `✅ Added new article: "${item.title.substring(0, 50)}..."`
+            );
+
+            // Analyze article with AI
             const analysisResult = await analyzeArticleWithAI(
               item.contentSnippet || item.content || "",
               item.title
             );
+
             await prisma.articleAnalysis.create({
               data: { articleId: newArticle.id, ...analysisResult },
             });
-            // We now pass the user's ID when updating trends
-            await updateTrendData(analysisResult.keywords, source.userId);
+
+            // Update trend data
+            await updateTrendData(
+              analysisResult.keywords,
+              source.userId,
+              prisma
+            );
           }
         }
+
+        // Update last fetched timestamp
         await prisma.source.update({
           where: { id: source.id },
           data: { lastFetched: new Date() },
         });
+
+        console.log(`✅ Finished processing ${source.name}`);
       } catch (feedError: any) {
         console.error(
           `❌ Failed to process feed for ${source.name} (${source.url}). Error: ${feedError.message}`
         );
       }
     }
+
+    await prisma.$disconnect();
+
     console.log(`✅ RSS job finished. Ingested ${articlesAdded} new articles.`);
-    return NextResponse.json({ success: true, articlesAdded });
+    return NextResponse.json({
+      success: true,
+      articlesAdded,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error: any) {
-    console.error("A CRITICAL ERROR OCCURRED IN THE INGESTION JOB", error);
+    console.error("❌ A CRITICAL ERROR OCCURRED IN THE INGESTION JOB", error);
+    await prisma.$disconnect();
+
     return NextResponse.json(
-      { error: "Internal Server Error", details: error.message },
+      {
+        error: "Internal Server Error",
+        details: error.message,
+        timestamp: new Date().toISOString(),
+      },
       { status: 500 }
     );
   }
