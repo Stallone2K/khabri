@@ -1,10 +1,10 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Plus, MinusCircle, Loader2 } from 'lucide-react';
+import { toast } from "sonner"; // ✅ Using Sonner
 
 type Source = { id: string; name: string; url: string; };
 
@@ -12,17 +12,18 @@ export const SourcesManager = () => {
 	const [sources, setSources] = useState<Source[]>([]);
 	const [newSourceUrl, setNewSourceUrl] = useState('');
 	const [isLoading, setIsLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const [isAdding, setIsAdding] = useState(false);
 
+	// Fetch sources on mount
 	const fetchSources = async () => {
-		setIsLoading(true);
 		try {
 			const res = await fetch('/api/sources');
 			if (!res.ok) throw new Error('Failed to fetch sources');
 			const data = await res.json();
 			setSources(data);
 		} catch (err: any) {
-			setError(err.message);
+			console.error(err);
+			toast.error("Could not load sources");
 		} finally {
 			setIsLoading(false);
 		}
@@ -35,55 +36,65 @@ export const SourcesManager = () => {
 	const handleAddSource = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!newSourceUrl) return;
-		setError(null);
+
+		setIsAdding(true);
 
 		try {
-			// --- FIX: Auto-generate a name from the URL ---
-			let name = 'New Source';
+			// 1. Basic URL Validation
+			let urlObj;
 			try {
-				const urlObj = new URL(newSourceUrl);
-				name = urlObj.hostname.replace('www.', '');
+				urlObj = new URL(newSourceUrl);
 			} catch (e) {
-				// If URL is invalid, keep default name
+				throw new Error("Invalid URL. Please include https://");
 			}
+
+			// 2. Auto-generate Name
+			const name = urlObj.hostname.replace('www.', '');
 
 			const res = await fetch('/api/sources', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				// We now include the 'name' in the body
 				body: JSON.stringify({ url: newSourceUrl, name: name, type: 'RSS' }),
 			});
 
+			const data = await res.json();
+
 			if (!res.ok) {
-				const errData = await res.json();
-				throw new Error(errData.error || 'Failed to add source');
+				throw new Error(data.error || 'Failed to add source');
 			}
 
+			// 3. Success
 			setNewSourceUrl('');
+			toast.success(`${name} added successfully!`);
 			await fetchSources();
+
 		} catch (err: any) {
-			setError(err.message);
+			toast.error(err.message || "Failed to add source");
+		} finally {
+			setIsAdding(false);
 		}
 	};
 
 	const handleDeleteSource = async (sourceId: string) => {
+		// Optimistic Update: Remove from UI immediately
 		const originalSources = [...sources];
 		setSources(sources.filter(source => source.id !== sourceId));
 
 		try {
-			const res = await fetch(`/api/sources`, { // Note: DELETE typically uses body or query param depending on implementation
+			const res = await fetch(`/api/sources`, {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id: sourceId }) // Sending ID in body as per previous backend code
+				body: JSON.stringify({ id: sourceId })
 			});
 
 			if (!res.ok) {
-				setSources(originalSources);
-				setError("Failed to delete source. Please try again.");
+				throw new Error("Failed to delete");
 			}
+			toast.success("Source removed");
 		} catch (err: any) {
+			// Revert UI if API fails
 			setSources(originalSources);
-			setError(err.message);
+			toast.error("Failed to delete source");
 		}
 	};
 
@@ -94,25 +105,41 @@ export const SourcesManager = () => {
 					type="url"
 					value={newSourceUrl}
 					onChange={(e) => setNewSourceUrl(e.target.value)}
-					placeholder="https://example.com/rss.xml"
+					placeholder="https://feeds.feedburner.com/TechCrunch"
+					disabled={isAdding}
+					className="bg-background"
 				/>
-				<Button type="submit" size="icon"><Plus className="h-4 w-4" /></Button>
+				<Button type="submit" size="icon" disabled={isAdding}>
+					{isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+				</Button>
 			</form>
-
-			{error && <p className="text-sm text-destructive mb-4">{error}</p>}
 
 			<div className="space-y-2">
 				{isLoading ? (
-					<div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin" /></div>
+					<div className="flex items-center justify-center p-4">
+						<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+					</div>
+				) : sources.length === 0 ? (
+					<div className="text-center py-8 border-2 border-dashed rounded-lg">
+						<p className="text-sm text-muted-foreground">No sources added yet.</p>
+						<p className="text-xs text-muted-foreground mt-1">Add an RSS feed URL above to get started.</p>
+					</div>
 				) : (
 					sources.map((source) => (
-						<div key={source.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-							<div>
-								<p className="font-medium">{source.name}</p>
-								<p className="text-xs text-muted-foreground">{source.url}</p>
+						<div key={source.id} className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-accent/5 transition-colors group">
+							<div className="overflow-hidden mr-4">
+								<p className="font-medium truncate text-sm">{source.name}</p>
+								<p className="text-xs text-muted-foreground truncate" title={source.url}>
+									{source.url}
+								</p>
 							</div>
-							<Button variant="ghost" size="icon" onClick={() => handleDeleteSource(source.id)}>
-								<MinusCircle className="h-5 w-5 text-destructive" />
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={() => handleDeleteSource(source.id)}
+								className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+							>
+								<MinusCircle className="h-4 w-4" />
 							</Button>
 						</div>
 					))
@@ -121,4 +148,3 @@ export const SourcesManager = () => {
 		</div>
 	);
 };
-

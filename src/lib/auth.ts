@@ -1,10 +1,9 @@
 import { DefaultSession, NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma"; // ✅ IMPORT SHARED INSTANCE
 
-// This block explicitly merges our custom 'id' field with the default user type.
-// This is a more robust way to declare our custom session.
+// Extend session type to include User ID
 declare module "next-auth" {
   interface Session {
     user: {
@@ -13,23 +12,24 @@ declare module "next-auth" {
   }
 }
 
-const prisma = new PrismaClient();
-
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma), // ✅ USE SHARED INSTANCE
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  session: {
+    strategy: "jwt", // Use JWT for easier session handling in server components
+  },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    session: ({ session, user }) => ({
+    session: ({ session, token }) => ({
       ...session,
       user: {
         ...session.user,
-        id: user.id,
+        id: token.sub!, // Map user ID from token
       },
     }),
   },

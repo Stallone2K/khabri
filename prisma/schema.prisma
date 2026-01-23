@@ -46,6 +46,8 @@ model User {
   trendDataPoints TrendDataPoint[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  projects      Project[]
+  rankedTrends  RankedTrend[]
 }
 
 model VerificationToken {
@@ -60,15 +62,14 @@ enum SourceType {
 }
 
 model Source {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  url         String
+  id          String   @id @default(cuid())
   name        String
-  type        SourceType
-  lastFetched DateTime?
-  createdAt   DateTime  @default(now())
-  articles    Article[]
+  url         String   @unique
+  category    String   // e.g., "Technology", "Finance"
+  isActive    Boolean  @default(true)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  articles    Article[] 
 }
 
 model Article {
@@ -121,3 +122,41 @@ model TrendDataPoint {
   // This updates the unique constraint to be per-user, which is more robust.
   @@unique([keyword, timestamp, userId], name: "keyword_timestamp_userId")
 }
+
+model Signal {
+  id          String   @id @default(cuid())
+  title       String
+  url         String   @unique
+  source      String
+  publishedAt DateTime
+  createdAt   DateTime @default(now())
+}
+
+model RankedTrend {
+  id          String   @id @default(cuid())
+  rank        Int
+  topic       String
+  score       Int
+  reason      String   @db.Text
+  originalUrl String?
+  createdAt   DateTime @default(now())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id             String   @id @default(cuid())
+  title          String
+  type           String   // BHUPEN_SCRIPT, BLOG_POST, TWITTER_THREAD
+  status         String   // DRAFT, RESEARCHING, COMPLETED
+  
+  // Data Blobs
+  researchData   String?  @db.Text // JSON or Markdown from Deep Research
+  finalOutput    String?  @db.Text // The final generated script/blog
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+}
+
