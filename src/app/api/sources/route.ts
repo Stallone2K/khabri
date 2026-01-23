@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { prisma } from "@/lib/prisma"; // ✅ IMPORT SHARED INSTANCE
+import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import Parser from "rss-parser"; // ✅ Import parser
 
-// GET: Fetch all sources
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    // 1. Check Auth
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized - Please Log In" },
@@ -16,7 +15,6 @@ export async function GET() {
       );
     }
 
-    // 2. Fetch Data
     const sources = await prisma.source.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: "desc" },
@@ -32,7 +30,6 @@ export async function GET() {
   }
 }
 
-// POST: Add a source
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -41,17 +38,45 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { name, url } = await request.json();
+    const { url } = await request.json(); // We only really need the URL now
 
-    if (!name || !url) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    if (!url) {
+      return NextResponse.json({ error: "URL is required" }, { status: 400 });
+    }
+
+    // 1. Fetch the RSS feed to get the REAL Title
+    let finalName = "";
+    try {
+      const parser = new Parser({
+        timeout: 5000,
+        headers: { "User-Agent": "Khabri RSS Reader/1.0" },
+      });
+      const feed = await parser.parseURL(url);
+
+      // Use the feed title, or fallback to hostname if missing
+      finalName =
+        feed.title?.trim() || new URL(url).hostname.replace("www.", "");
+    } catch (parseError) {
+      console.warn(
+        "Could not fetch RSS title, falling back to hostname",
+        parseError,
+      );
+      try {
+        finalName = new URL(url).hostname.replace("www.", "");
+      } catch (e) {
+        return NextResponse.json(
+          { error: "Invalid URL provided" },
+          { status: 400 },
+        );
+      }
     }
 
     const newSource = await prisma.source.create({
       data: {
-        name,
+        name: finalName, // ✅ Uses the real title from the RSS feed
         url,
         type: "RSS",
+        category: "General",
         userId: session.user.id,
       },
     });
@@ -66,7 +91,6 @@ export async function POST(request: Request) {
   }
 }
 
-// DELETE: Remove a source
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -77,7 +101,6 @@ export async function DELETE(request: Request) {
 
     const { id } = await request.json();
 
-    // Verify ownership before deleting
     const count = await prisma.source.count({
       where: { id, userId: session.user.id },
     });
@@ -91,5 +114,37 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
+  }
+}
+
+// PATCH: Rename a source
+export async function PATCH(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id, name } = await request.json();
+
+    if (!id || !name) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+
+    const updatedSource = await prisma.source.update({
+      where: {
+        id,
+        userId: session.user.id, // Security: ensure user owns this source
+      },
+      data: { name },
+    });
+
+    return NextResponse.json(updatedSource);
+  } catch (error) {
+    console.error("PATCH Source Error:", error);
+    return NextResponse.json(
+      { error: "Failed to update source" },
+      { status: 500 },
+    );
   }
 }

@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { PrismaClient } from "@prisma/client";
-// We also update this file to import from the new location.
+import { prisma } from "@/lib/prisma"; // ✅ Use Shared Instance
 import { authOptions } from "@/lib/auth";
-
-const prisma = new PrismaClient();
 
 export async function GET() {
   const session = await getServerSession(authOptions);

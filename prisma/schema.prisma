@@ -65,12 +65,16 @@ model Source {
   id          String   @id @default(cuid())
   name        String
   url         String   @unique
-  category    String   // e.g., "Technology", "Finance"
+  category    String?  @default("General") // ✅ Made optional with default
+  type        String   @default("RSS")     // ✅ Added type field to match your API
   isActive    Boolean  @default(true)
   userId      String
   user        User     @relation(fields: [userId], references: [id])
-  articles    Article[] 
+  articles    Article[]
+  
+  createdAt   DateTime @default(now())     // ✅ Added missing field
 }
+
 
 model Article {
   id             String            @id @default(cuid())

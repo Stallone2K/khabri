@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
+import { prisma } from "@/lib/prisma"; // ✅ Use Shared Instance
 import { authOptions } from "@/lib/auth";
-
-const prisma = new PrismaClient();
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -57,6 +55,10 @@ export async function GET() {
       }),
     ]);
 
+    // ... (Keep the rest of your logic below exactly the same) ...
+    // To save space, I am just showing the top part where the fix is needed.
+    // The rest of the file logic for "On the Rise" etc. stays untouched.
+
     // --- Process "On the Rise" Keyword ---
     const recentCounts = new Map<string, number>();
     const previousCounts = new Map<string, number>();
@@ -65,6 +67,7 @@ export async function GET() {
         point.timestamp >= twentyFourHoursAgo ? recentCounts : previousCounts;
       map.set(point.keyword, (map.get(point.keyword) || 0) + point.count);
     });
+
     let onTheRiseKeyword = { keyword: "N/A", change: 0, isNew: false };
     let maxChange = -Infinity;
 
@@ -86,7 +89,6 @@ export async function GET() {
       }
     });
 
-    // --- Fallback logic for "On the Rise" ---
     if (onTheRiseKeyword.keyword === "N/A" && recentCounts.size > 0) {
       let topTodayKeyword = "N/A";
       let maxCount = 0;
@@ -99,7 +101,6 @@ export async function GET() {
       onTheRiseKeyword = { keyword: topTodayKeyword, change: 0, isNew: true };
     }
 
-    // --- Process Most Active Source ---
     let mostActiveSource = { name: "N/A", count: 0 };
     if (mostActiveSourceResult.length > 0) {
       const source = await prisma.source.findUnique({
@@ -112,7 +113,6 @@ export async function GET() {
       };
     }
 
-    // --- Assemble final response ---
     return NextResponse.json({
       topKeywords: topKeywordsResult.map((k) => k.keyword),
       onTheRise: onTheRiseKeyword,
@@ -123,7 +123,7 @@ export async function GET() {
     console.error("Failed to retrieve stat card data:", error);
     return NextResponse.json(
       { error: "Failed to retrieve stat card data" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

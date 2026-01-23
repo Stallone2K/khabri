@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Plus, MinusCircle, Loader2 } from 'lucide-react';
-import { toast } from "sonner"; // ✅ Using Sonner
+import { toast } from "sonner";
 
 type Source = { id: string; name: string; url: string; };
 
@@ -14,7 +14,6 @@ export const SourcesManager = () => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [isAdding, setIsAdding] = useState(false);
 
-	// Fetch sources on mount
 	const fetchSources = async () => {
 		try {
 			const res = await fetch('/api/sources');
@@ -40,21 +39,18 @@ export const SourcesManager = () => {
 		setIsAdding(true);
 
 		try {
-			// 1. Basic URL Validation
-			let urlObj;
+			// Validate URL format only
 			try {
-				urlObj = new URL(newSourceUrl);
+				new URL(newSourceUrl);
 			} catch (e) {
 				throw new Error("Invalid URL. Please include https://");
 			}
 
-			// 2. Auto-generate Name
-			const name = urlObj.hostname.replace('www.', '');
-
+			// Send ONLY the URL. The backend will find the name.
 			const res = await fetch('/api/sources', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url: newSourceUrl, name: name, type: 'RSS' }),
+				body: JSON.stringify({ url: newSourceUrl }),
 			});
 
 			const data = await res.json();
@@ -63,9 +59,9 @@ export const SourcesManager = () => {
 				throw new Error(data.error || 'Failed to add source');
 			}
 
-			// 3. Success
 			setNewSourceUrl('');
-			toast.success(`${name} added successfully!`);
+			// Show the name returned by the backend
+			toast.success(`${data.name} added successfully!`);
 			await fetchSources();
 
 		} catch (err: any) {
@@ -76,7 +72,6 @@ export const SourcesManager = () => {
 	};
 
 	const handleDeleteSource = async (sourceId: string) => {
-		// Optimistic Update: Remove from UI immediately
 		const originalSources = [...sources];
 		setSources(sources.filter(source => source.id !== sourceId));
 
@@ -92,7 +87,6 @@ export const SourcesManager = () => {
 			}
 			toast.success("Source removed");
 		} catch (err: any) {
-			// Revert UI if API fails
 			setSources(originalSources);
 			toast.error("Failed to delete source");
 		}
@@ -148,3 +142,4 @@ export const SourcesManager = () => {
 		</div>
 	);
 };
+
