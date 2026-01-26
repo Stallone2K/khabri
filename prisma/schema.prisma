@@ -151,12 +151,19 @@ model RankedTrend {
 model Project {
   id             String   @id @default(cuid())
   title          String
-  type           String   // BHUPEN_SCRIPT, BLOG_POST, TWITTER_THREAD
-  status         String   // DRAFT, RESEARCHING, COMPLETED
+  // Types: BHUPEN_SCRIPT, BLOG_POST, TWITTER_THREAD
+  type           String   
+  // Status: DRAFT, RESEARCHING, RESEARCHED, GENERATING, COMPLETED, FAILED
+  status         String   @default("DRAFT")
   
-  // Data Blobs
-  researchData   String?  @db.Text // JSON or Markdown from Deep Research
-  finalOutput    String?  @db.Text // The final generated script/blog
+  // Stores the specific topic/brief
+  brief          Json?    
+  
+  // The raw Deep Research report or Research Dossier
+  researchData   String?  @db.Text 
+  
+  // The final generated content (Script, Blog HTML, Tweet Text)
+  finalOutput    String?  @db.Text
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

@@ -1,92 +1,214 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { getServerSession } from "next-auth/next";
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-const prisma = new PrismaClient();
+// Common English stop words to ignore in keyword search
+const STOP_WORDS = new Set([
+  "the",
+  "be",
+  "to",
+  "of",
+  "and",
+  "a",
+  "in",
+  "that",
+  "have",
+  "i",
+  "it",
+  "for",
+  "not",
+  "on",
+  "with",
+  "he",
+  "as",
+  "you",
+  "do",
+  "at",
+  "this",
+  "but",
+  "his",
+  "by",
+  "from",
+  "they",
+  "we",
+  "say",
+  "her",
+  "she",
+  "or",
+  "an",
+  "will",
+  "my",
+  "one",
+  "all",
+  "would",
+  "there",
+  "their",
+  "what",
+  "so",
+  "up",
+  "out",
+  "if",
+  "about",
+  "who",
+  "get",
+  "which",
+  "go",
+  "me",
+  "when",
+  "make",
+  "can",
+  "like",
+  "time",
+  "no",
+  "just",
+  "him",
+  "know",
+  "take",
+  "people",
+  "into",
+  "year",
+  "your",
+  "good",
+  "some",
+  "could",
+  "them",
+  "see",
+  "other",
+  "than",
+  "then",
+  "now",
+  "look",
+  "only",
+  "come",
+  "its",
+  "over",
+  "think",
+  "also",
+  "back",
+  "after",
+  "use",
+  "two",
+  "how",
+  "our",
+  "work",
+  "first",
+  "well",
+  "way",
+  "even",
+  "new",
+  "want",
+  "because",
+  "any",
+  "these",
+  "give",
+  "day",
+  "most",
+  "us",
+]);
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Dev Mode Fallback
+  let userId = session?.user?.id;
+  if (!userId) {
+    const firstUser = await prisma.user.findFirst();
+    userId = firstUser?.id;
   }
 
+  if (!userId)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
-    // --- 1. Find the Top 5 Trending Keywords in the last 48 hours for this user ---
-    const fortyEightHoursAgo = new Date(
-      new Date().getTime() - 48 * 60 * 60 * 1000
-    );
-    const topKeywordsResult = await prisma.trendDataPoint.groupBy({
-      by: ["keyword"],
-      where: {
-        timestamp: { gte: fortyEightHoursAgo },
-        userId: session.user.id, // Filter by the logged-in user
-      },
-      _sum: {
-        count: true,
-      },
-      orderBy: {
-        _sum: {
-          count: "desc",
-        },
-      },
+    // 1. Parse 'hours' from query param (Default: 24)
+    const { searchParams } = new URL(req.url);
+    const hoursParam = parseInt(searchParams.get("hours") || "24");
+    // Limit to reasonable range (1 to 48 hours) to prevent abuse
+    const hours = Math.max(1, Math.min(hoursParam, 48));
+
+    // 2. Get Top 5 Trends
+    const topTrends = await prisma.rankedTrend.findMany({
+      where: { userId },
+      orderBy: { rank: "asc" },
       take: 5,
+      select: { id: true, topic: true, rank: true, originalUrl: true },
     });
 
-    const topKeywords = topKeywordsResult.map((k) => k.keyword);
+    const now = new Date();
+    const startTime = new Date(now.getTime() - hours * 60 * 60 * 1000);
 
-    if (topKeywords.length === 0) {
-      return NextResponse.json({ keywords: [], data: [] });
-    }
-
-    // --- 2. Get all historical data for ONLY those top 5 keywords for the last 30 days ---
-    const thirtyDaysAgo = new Date(
-      new Date().getTime() - 30 * 24 * 60 * 60 * 1000
-    );
-    const historicalData = await prisma.trendDataPoint.findMany({
-      where: {
-        keyword: { in: topKeywords },
-        timestamp: { gte: thirtyDaysAgo },
-        userId: session.user.id, // Filter by the logged-in user
-      },
-      orderBy: {
-        timestamp: "asc",
-      },
+    // 3. Initialize buckets based on 'hours'
+    const chartData = Array.from({ length: hours }, (_, i) => {
+      const d = new Date(startTime.getTime() + i * 60 * 60 * 1000);
+      return {
+        time: d.getHours() + ":00",
+        timestamp: d.getTime(),
+        ...topTrends.reduce(
+          (acc, t) => ({ ...acc, [`trend_${t.rank}`]: 0 }),
+          {},
+        ),
+      };
     });
 
-    // --- 3. Process the data into a format that's easy for the chart to read ---
-    const processedData = new Map<string, any>();
+    // 4. Populate Data
+    for (const trend of topTrends) {
+      const rawWords = trend.topic.toLowerCase().split(/[^a-z0-9]+/);
+      const keywords = rawWords.filter(
+        (w) => w.length > 1 && !STOP_WORDS.has(w),
+      );
 
-    historicalData.forEach((point) => {
-      const date = point.timestamp.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
+      const searchConditions: any[] = [];
 
-      if (!processedData.has(date)) {
-        const initialData: { [key: string]: number | string } = { date };
-        topKeywords.forEach((k) => {
-          initialData[k] = 0;
-        });
-        processedData.set(date, initialData);
+      if (keywords.length > 0) {
+        searchConditions.push(
+          ...keywords.map((word) => ({
+            title: { contains: word, mode: "insensitive" },
+          })),
+        );
+      }
+      if (trend.originalUrl) {
+        searchConditions.push({ url: trend.originalUrl });
       }
 
-      const dateEntry = processedData.get(date);
-      dateEntry[point.keyword] = (dateEntry[point.keyword] || 0) + point.count;
-    });
+      if (searchConditions.length === 0) continue;
 
-    const chartData = Array.from(processedData.values());
+      const matchingSignals = await prisma.signal.findMany({
+        where: {
+          OR: [
+            { publishedAt: { gte: startTime } },
+            { createdAt: { gte: startTime } },
+          ],
+          AND: [{ OR: searchConditions }],
+        },
+        select: { publishedAt: true, createdAt: true, url: true },
+      });
 
-    // --- 4. Return both the list of top keywords (for the legend) and the chart data ---
-    return NextResponse.json({
-      keywords: topKeywords,
-      data: chartData,
-    });
+      const processedSignalIds = new Set();
+
+      matchingSignals.forEach((sig) => {
+        if (processedSignalIds.has(sig.url)) return;
+        processedSignalIds.add(sig.url);
+
+        const dateToUse =
+          sig.publishedAt > startTime ? sig.publishedAt : sig.createdAt;
+        const sigTime = new Date(dateToUse).getTime();
+
+        // Calculate hour index based on dynamic 'hours'
+        const hourIndex = Math.floor(
+          (sigTime - startTime.getTime()) / (60 * 60 * 1000),
+        );
+
+        if (hourIndex >= 0 && hourIndex < hours) {
+          // @ts-ignore
+          chartData[hourIndex][`trend_${trend.rank}`] += 1;
+        }
+      });
+    }
+
+    return NextResponse.json(chartData);
   } catch (error) {
-    console.error("Failed to retrieve graph trend data:", error);
-    return NextResponse.json(
-      { error: "Failed to retrieve graph trend data" },
-      { status: 500 }
-    );
+    console.error("Graph API Error:", error);
+    return NextResponse.json({ error: "Graph failed" }, { status: 500 });
   }
 }
