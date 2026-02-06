@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { title, type } = body;
+  const { title, type, brief } = body;
 
   const newProject = await prisma.project.create({
     data: {
@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       type: type || "BLOG_POST",
       status: "DRAFT",
       userId: session.user.id,
+      brief: brief ? (brief as any) : undefined,
     },
   });
 

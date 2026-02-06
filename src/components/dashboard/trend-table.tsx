@@ -120,7 +120,7 @@ export function TrendTable({ onUpdate }: TrendTableProps) {
 					brief: {
 						initialTopic: topic,
 						source: "Trend Dashboard",
-						originalUrl: url, // <--- SAVING THE URL HERE
+						originalUrl: url,
 						generatedAt: new Date().toISOString()
 					}
 				}),
@@ -276,7 +276,7 @@ export function TrendTable({ onUpdate }: TrendTableProps) {
 													<DropdownMenuItem
 														onSelect={(e) => {
 															e.preventDefault(); // Prevents menu form closing too fast
-															handleCreateProject(trend.topic);
+															handleCreateProject(trend.topic, trend.originalUrl);
 														}}
 													>
 														<FileText className="mr-2 h-4 w-4" /> Create Project

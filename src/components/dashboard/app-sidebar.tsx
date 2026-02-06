@@ -5,7 +5,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { useSession, signOut } from 'next-auth/react'
 import {
-	Tv,
 	LayoutDashboard,
 	Settings,
 	Megaphone,
@@ -331,7 +330,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 												<DropdownMenuTrigger asChild>
 													<Button
 														variant="ghost"
-														className="h-6 w-6 p-0 absolute right-1 opacity-0 group-hover/item:opacity-100 transition-opacity"
+														className="h-6 w-6 p-0 absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity data-[state=open]:opacity-100"
 													>
 														<MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
 													</Button>
@@ -500,6 +499,6 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 					</Button>
 				</div>
 			</SidebarFooter>
-		</Sidebar>
+		</Sidebar >
 	)
 }
