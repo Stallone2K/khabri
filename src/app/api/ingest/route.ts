@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import Parser from "rss-parser";
 import { prisma } from "@/lib/prisma";
-import {
-  GoogleGenerativeAI,
-  HarmCategory,
-  HarmBlockThreshold,
-} from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai"; // <--- NEW SDK
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { TREND_ENGINE_PROMPT } from "@/lib/prompts";
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// Initialize Gemini (New SDK)
+const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const FEED_SOURCES = [
   { url: "https://www.reddit.com/r/india/rising/.rss", source: "r/India" },
@@ -38,7 +34,7 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   let userId = session?.user?.id;
 
-  // Fallback for Terminal Testing (curl)
+  // Fallback for Terminal Testing
   if (!userId) {
     console.log("⚠️ No session found. Attempting to use fallback user...");
     const firstUser = await prisma.user.findFirst();
@@ -84,6 +80,7 @@ export async function POST(req: Request) {
     for (const s of flatSignals) {
       if (!s.url) continue;
 
+      // Deduplicate by URL in DB to avoid massive bloat
       const exists = await prisma.signal.findUnique({
         where: { url: s.url },
       });
@@ -121,6 +118,7 @@ export async function POST(req: Request) {
         title: s.title,
         url: s.url,
         source: s.source,
+        pubDate: s.publishedAt, // Map correctly for AI context
       }));
     }
 
@@ -130,38 +128,33 @@ export async function POST(req: Request) {
       .join("\n");
 
     // ==========================================
-    // STEP 3: AI RANKING (Gemini)
+    // STEP 3: AI RANKING (Gemini New SDK)
     // ==========================================
     console.log("🧠 Sending to Gemini (Flash) for Ranking...");
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3-flash-preview",
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-      ],
-    });
-
     const finalPrompt = `${TREND_ENGINE_PROMPT}\n\nRAW SIGNALS:\n${signalText}`;
 
-    const result = await model.generateContent(finalPrompt);
-    const responseText = result.response.text();
+    const response = await client.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: finalPrompt }],
+        },
+      ],
+      config: {
+        responseMimeType: "application/json", // Force JSON Output
+        temperature: 0.2,
+      },
+    });
 
+    // Extract Text (New SDK structure)
+    const responseText =
+      response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+
+    // Clean Markdown wrapping if present (though responseMimeType usually handles this)
     const jsonString = responseText.replace(/```json|```/g, "").trim();
+
     let rankedTrends = [];
 
     try {
@@ -177,7 +170,7 @@ export async function POST(req: Request) {
     // ==========================================
     // STEP 4: SAVE RANKED TRENDS
     // ==========================================
-    // Optional: Delete old trends for this user to keep dashboard fresh
+    // Clean old trends for this user to keep dashboard fresh
     await prisma.rankedTrend.deleteMany({ where: { userId: userId! } });
 
     if (Array.isArray(rankedTrends)) {
@@ -201,12 +194,15 @@ export async function POST(req: Request) {
       success: true,
       signalsIngested: newSignalsCount,
       trendsGenerated: rankedTrends.length,
-      trends: rankedTrends, // Returning trends so you can see them in terminal immediately
+      trends: rankedTrends,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("🔥 Pipeline Error:", error);
     return NextResponse.json(
-      { error: "Internal Server Error", details: String(error) },
+      {
+        error: "Internal Server Error",
+        details: String(error?.message || error),
+      },
       { status: 500 },
     );
   }

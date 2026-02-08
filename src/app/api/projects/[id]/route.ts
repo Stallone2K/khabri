@@ -3,52 +3,65 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// DELETE: Remove a project
-export async function DELETE(
+// 1. GET: Load the Project Data
+export async function GET(
   req: Request,
   { params }: { params: { id: string } },
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
 
-  try {
-    await prisma.project.delete({
-      where: {
-        id: params.id,
-        userId: session.user.id, // Security: Ensure user owns it
-      },
-    });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
-  }
+  const project = await prisma.project.findUnique({
+    where: { id: params.id, userId: session.user.id },
+  });
+
+  if (!project) return new NextResponse("Not Found", { status: 404 });
+
+  return NextResponse.json(project);
 }
 
-// PATCH: Rename a project
+// 2. PATCH: Save Changes (Title, Brief, etc.)
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } },
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
 
   const body = await req.json();
-  const { title } = body;
+  const { title, brief, status } = body;
 
   try {
-    const updated = await prisma.project.update({
-      where: {
-        id: params.id,
-        userId: session.user.id,
-      },
+    const updatedProject = await prisma.project.update({
+      where: { id: params.id, userId: session.user.id },
       data: {
-        title: title,
+        ...(title && { title }), // Only update if provided
+        ...(status && { status }),
+        // Merge the brief JSON responsibly
+        ...(brief && {
+          brief: brief,
+        }),
       },
     });
-    return NextResponse.json(updated);
+
+    return NextResponse.json(updatedProject);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    console.error("Failed to update project", error);
+    return new NextResponse("Internal Error", { status: 500 });
   }
+}
+
+// 3. DELETE: Remove Project
+export async function DELETE(
+  req: Request,
+  { params }: { params: { id: string } },
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
+
+  await prisma.project.delete({
+    where: { id: params.id, userId: session.user.id },
+  });
+
+  return new NextResponse(null, { status: 204 });
 }
