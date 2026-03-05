@@ -22,7 +22,7 @@ export const SourcesManager = () => {
 			setSources(data);
 		} catch (err: any) {
 			console.error(err);
-			toast.error("Could not load sources");
+			toast.error("Could Not Load Sources");
 		} finally {
 			setIsLoading(false);
 		}
@@ -61,11 +61,11 @@ export const SourcesManager = () => {
 
 			setNewSourceUrl('');
 			// Show the name returned by the backend
-			toast.success(`${data.name} added successfully!`);
+			toast.success(`${data.name} Added Successfully!`);
 			await fetchSources();
 
 		} catch (err: any) {
-			toast.error(err.message || "Failed to add source");
+			toast.error(err.message || "Failed To Add Source");
 		} finally {
 			setIsAdding(false);
 		}
@@ -85,10 +85,10 @@ export const SourcesManager = () => {
 			if (!res.ok) {
 				throw new Error("Failed to delete");
 			}
-			toast.success("Source removed");
+			toast.success("Source Removed");
 		} catch (err: any) {
 			setSources(originalSources);
-			toast.error("Failed to delete source");
+			toast.error("Failed To Delete Source");
 		}
 	};
 

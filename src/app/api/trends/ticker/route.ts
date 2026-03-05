@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   let userId = session?.user?.id;
 
@@ -16,9 +16,28 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    // 1. Get Top 10 Trends
-    const topTrends = await prisma.rankedTrend.findMany({
+    const { searchParams } = new URL(req.url);
+    const region = searchParams.get("region");
+
+    // 1. Find the latest batch timestamp
+    const latestTrend = await prisma.rankedTrend.findFirst({
       where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+
+    if (!latestTrend) {
+      return NextResponse.json([]);
+    }
+
+    // 2. Get Top 10 from LATEST batch only
+    const trendWhere: any = { userId, createdAt: latestTrend.createdAt };
+    if (region === "DOMESTIC" || region === "INTERNATIONAL") {
+      trendWhere.region = region;
+    }
+
+    const topTrends = await prisma.rankedTrend.findMany({
+      where: trendWhere,
       orderBy: { rank: "asc" },
       take: 10,
       select: { id: true, topic: true, rank: true, score: true },

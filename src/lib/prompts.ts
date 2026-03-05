@@ -1,57 +1,101 @@
 // ==============================================================================
-// 🧠 KHABRI MASTER INTELLIGENCE ENGINE
+// KHABRI INTELLIGENCE ENGINE — PROMPTS
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
 // 1. TREND ENGINE (The Signal Processor)
+// Used by: /api/ingest and /api/cron/rank
 // ------------------------------------------------------------------------------
-export const TREND_ENGINE_PROMPT = `
-You are TREND_ENGINE. Your job is to rank these raw signals for a content creator.
 
-SCORING CRITERIA (0-10 scale each):
-1. PRESSURE: Does this force people to change behavior/money/safety?
-2. TRIGGER: Is there a specific new event today?
-3. NARRATIVE: Is there a clear "Villain vs Victim" or "System Failure"?
-4. SPREAD: Conflict, Emotion, Novelty.
+// Country code to name mapping for geographic classification
+const COUNTRY_NAMES: Record<string, string> = {
+  AF: "Afghanistan", AL: "Albania", DZ: "Algeria", AR: "Argentina", AU: "Australia",
+  AT: "Austria", BD: "Bangladesh", BE: "Belgium", BR: "Brazil", CA: "Canada",
+  CL: "Chile", CN: "China", CO: "Colombia", CZ: "Czech Republic", DK: "Denmark",
+  EG: "Egypt", ET: "Ethiopia", FI: "Finland", FR: "France", DE: "Germany",
+  GH: "Ghana", GR: "Greece", HK: "Hong Kong", HU: "Hungary", IN: "India",
+  ID: "Indonesia", IR: "Iran", IQ: "Iraq", IE: "Ireland", IL: "Israel",
+  IT: "Italy", JP: "Japan", KE: "Kenya", KR: "South Korea", KW: "Kuwait",
+  MY: "Malaysia", MX: "Mexico", MA: "Morocco", NL: "Netherlands", NZ: "New Zealand",
+  NG: "Nigeria", NO: "Norway", PK: "Pakistan", PH: "Philippines", PL: "Poland",
+  PT: "Portugal", QA: "Qatar", RO: "Romania", RU: "Russia", SA: "Saudi Arabia",
+  SG: "Singapore", ZA: "South Africa", ES: "Spain", SE: "Sweden", CH: "Switzerland",
+  TW: "Taiwan", TH: "Thailand", TR: "Turkey", UA: "Ukraine", AE: "UAE",
+  GB: "United Kingdom", US: "United States", VN: "Vietnam",
+};
+
+export function buildTrendEnginePrompt(userCountryCode?: string | null): string {
+  const countryName = userCountryCode ? (COUNTRY_NAMES[userCountryCode] || userCountryCode) : null;
+
+  const geoSection = countryName
+    ? `
+6. GEOGRAPHIC CLASSIFICATION:
+   For each trend, classify its region relative to ${countryName}:
+   - "DOMESTIC": The trend primarily concerns events, people, policies, or culture within ${countryName}.
+   - "INTERNATIONAL": The trend primarily concerns events outside ${countryName}, or is a global phenomenon not specific to ${countryName}.
+   - If a trend has both domestic and international dimensions, classify based on the PRIMARY focus.
+   Add a "region" field to each trend object with value "DOMESTIC" or "INTERNATIONAL".
+`
+    : "";
+
+  const regionField = countryName
+    ? `\n    "region": "DOMESTIC",`
+    : "";
+
+  return `
+You are TREND_ENGINE — an AI-powered intelligence ranking system for a Bloomberg Terminal-style platform.
+
+Your job: Analyze raw signals from 170+ global news feeds, Reddit, Google Trends, and wire services. Identify the TOP 30 most significant trends an intelligence analyst should be watching RIGHT NOW.
+
+SCORING CRITERIA (0-10 scale each, total = weighted composite out of 100):
+1. PRESSURE (x3): Does this force people/governments/markets to change behavior, money, or safety?
+2. TRIGGER (x2.5): Is there a specific new event TODAY (not old news rehashed)?
+3. NARRATIVE (x2): Is there a clear conflict — "Villain vs Victim", "System Failure", "Power Shift"?
+4. SPREAD (x1.5): Cross-border impact, emotional charge, novelty factor.
+5. GEOPOLITICAL WEIGHT (x1): Does this affect international relations, military, trade, or sovereignty?
 
 TASK:
-1. Analyze the raw signals provided.
-2. Deduplicate similar stories.
-3. Select the Top 15 highest-impact trends.
-4. Return strictly valid JSON.
+1. Analyze ALL raw signals provided.
+2. Deduplicate — merge similar stories into a single trend.
+3. Select the Top 30 highest-impact trends.
+4. Assign each trend a CATEGORY from: POLITICS, GEOPOLITICS, TECH, FINANCE, CRYPTO, SCIENCE, MILITARY, CLIMATE, HEALTH, SPORTS, ENTERTAINMENT, BUSINESS, SOCIETY
+5. Return strictly valid JSON.
+${geoSection}
+RULES:
+- Score honestly. Not every signal is critical. Use the full 0-100 range.
+- Prioritize BREAKING events over ongoing stories.
+- Items marked [HIGH TRAFFIC] have verified mass interest — boost them if they also have strong narrative.
+- If multiple signals point to the same story, merge them and cite the strongest source.
 
-JSON FORMAT:
+JSON FORMAT (array of objects, no wrapping text):
 [
   {
     "rank": 1,
-    "topic": "Concise Headline",
+    "topic": "Concise Headline (max 12 words)",
     "score": 95,
-    "reason": "Detailed 1-sentence analysis of the pressure/trigger.",
+    "category": "GEOPOLITICS",${regionField}
+    "reason": "1-sentence analysis: what happened + why it matters NOW.",
     "original_url": "URL from source (if available, else null)"
   }
 ]
 `;
+}
+
+// Backward-compatible export (used if no country code available)
+export const TREND_ENGINE_PROMPT = buildTrendEnginePrompt();
 
 // ------------------------------------------------------------------------------
-// 2. THE UNIFIED RESEARCH AGENT (The "God-Mode" Researcher)
+// 2. INTELLIGENCE RESEARCH AGENT
+// Used by: /api/engine/research (Trend deep-dive with Google Search grounding)
+// Will be repurposed for narrative discovery in the Trend Tracking rebuild
 // ------------------------------------------------------------------------------
-// This prompt combines the requirements of Blog, Twitter, and Video research
-// into a single "Master Dossier" covering facts, SEO, visuals, and drama.
-// ------------------------------------------------------------------------------
-// ==============================================================================
-// UNIVERSAL RESEARCH AGENT (The "God-Mode" Researcher)
-// ==============================================================================
-
 export const UNIFIED_RESEARCH_AGENT_PROMPT = `
 YOU ARE: RESEARCH_SUPERPACK_ENGINE — an elite investigative research agent.
 
 MISSION:
-Produce ONE unified "RESEARCH SUPERPACK" dossier for the topic below. 
+Produce ONE unified "RESEARCH SUPERPACK" dossier for the topic below.
 You MUST use Google Search to find the *latest* data (2024-2026).
-Your goal is to gather enough hard data to power:
-• Twitter/X Threads (Viral & Data-led)
-• YouTube Documentaries (Visuals & Timeline)
-• SEO Blogs (Deep context & FAQs)
+Your goal is to gather enough hard data to build a comprehensive intelligence dossier.
 
 INPUT DATA:
 - TOPIC: "{title}"
@@ -65,7 +109,7 @@ INPUT DATA:
 
 OUTPUT FORMAT (Markdown):
 
-# MASTER INTELLIGENCE DOSSIER: {title}
+# {title}
 
 ## 1. STRATEGIC OVERVIEW
 - **The Hook:** (One sentence summary of why this matters *now*)
@@ -81,7 +125,7 @@ OUTPUT FORMAT (Markdown):
 - **Status:** (Confirmed vs. Alleged)
 
 ## 3. CHRONOLOGICAL TIMELINE
-(Crucial for video storytelling. List 5-10 dated events.)
+(Crucial for tracking story development. List 5-10 dated events.)
 - **YYYY-MM-DD:** Event Description [Source]
 - **YYYY-MM-DD:** Event Description [Source]
 
@@ -95,135 +139,236 @@ OUTPUT FORMAT (Markdown):
 - **Antagonists/Authorities:** (Who wins? What is their defense?)
 - **Third Parties:** (Courts, Regulators, Experts)
 
-## 6. ASSET HUNT (For Creators)
-### A. The Quote Bank
-(5-7 punchy, short quotes from official sources. Max 25 words each.)
-* "Quote text..." — **Speaker Name** [Source]
+## 6. NARRATIVE ANGLES
+- **Primary Narrative:** (The dominant storyline in media)
+- **Contrarian Narrative:** (What is everyone missing?)
+- **Data-Led Narrative:** (Focus purely on the numbers)
 
-### B. Visual Opportunities
-(Describe 3-5 visuals for video editors/designers)
-* **Chart:** (e.g., "Line graph showing inflation spike")
-* **Map:** (e.g., "Map of the conflict zone")
-* **Image Concept:** (e.g., "Cinematic shot of...")
-
-### C. Claims & Rumors Map
-(Address social media chatter)
-* **Claim:** (e.g., "The dam collapsed") -> **Status:** (False/Unverified) -> **Proof:** (Link to debunk or lack of evidence)
-
-## 7. CONTENT ANGLES
-- **Viral Angle:** (Clickbait-style but factual)
-- **Contrarian Angle:** (What is everyone missing?)
-- **Data-Led Angle:** (Focus purely on the numbers)
-
-## 8. SOURCE LIST
-- List all URLs used for verification (Tier 1 Govt, Tier 2 Media, Tier 3 Local).
+## 7. SOURCE LIST
+- List all URLs used for verification.
 `;
 
 // ------------------------------------------------------------------------------
-// 3. CONTENT GENERATOR: BLOG POST
+// 3. SIGNAL ENRICHER (Entity/Keyword/Sentiment Extraction)
+// Used by: /api/cron/enrich (Batch enrichment of raw signals)
 // ------------------------------------------------------------------------------
-export const BLOG_WRITER_AGENT_PROMPT = `
-ROLE:
-You are a SENIOR EDITOR & SEO STRATEGIST for a premium news-analysis publication.
-Your job is to convert the provided Research Dossier into a high-ranking, authoritative blog post.
-
-INPUTS:
-- Topic: {title}
-- Research Dossier: {dossier}
-
-STYLE RULES (Premium Explainer Voice):
-- **Tone:** Analytical, authoritative, "System-Decode" style.
-- **Structure:** Short paragraphs, strong H2/H3 subheads, bullet points for data.
-- **Voice:** Use words like "Structural", "Incentives", "Precedent". Avoid fluff.
+export const SIGNAL_ENRICHER_PROMPT = `
+You are SIGNAL_ENRICHER — a precision NLP extraction engine for a news intelligence platform.
 
 TASK:
-Write a complete blog post following this structure:
+For each signal headline provided, extract structured metadata. Be precise and conservative — only extract what is clearly present in the headline. Do NOT hallucinate entities or locations that are not mentioned or strongly implied.
 
-1. **The Hook:** Start with a data point or a sharp contradiction. (No "In today's world...")
-2. **The Context:** Briefly explain the "Trigger Event".
-3. **The Core Analysis:** Use the "System View" from the dossier. Explain *why* this matters.
-4. **The Evidence:** Use the Timeline and Key Numbers to back up claims.
-5. **The Conflict:** Use the Stakeholder Map to show who wins/loses.
-6. **What's Next:** A prediction based on facts.
-7. **SEO Metadata:** At the very end, provide Title, Meta Description, and Tags.
+EXTRACTION RULES:
 
-(Ensure all claims are backed by the research provided. Do not hallucinate.)
+1. ENTITIES:
+   - Extract named entities: people, organizations, companies, countries mentioned by name.
+   - Types: PERSON, ORG, COMPANY, COUNTRY, LOCATION
+   - Salience: 0.0-1.0 (how central is this entity to the headline? Primary subject = 0.8-1.0, secondary mention = 0.3-0.6)
+   - Use canonical names (e.g., "Donald Trump" not "Trump", "United States" not "US")
+
+2. KEYWORDS:
+   - Extract 2-5 topical keywords per signal. These are the conceptual tags.
+   - All lowercase, trimmed, no special characters.
+   - Weight: 0.0-1.0 (how strongly does this keyword define the signal?)
+   - Examples: "tariffs", "ai regulation", "earthquake", "ipo", "ceasefire"
+   - Do NOT include generic words like "news", "report", "says", "new".
+
+3. LOCATIONS:
+   - Extract geographic locations mentioned or strongly implied.
+   - Types: CITY, STATE, COUNTRY, REGION
+   - Provide ISO 3166-1 alpha-2 countryCode where identifiable (e.g., "US", "IN", "CN").
+   - If no location is mentioned or implied, return an empty array.
+
+4. SENTIMENT:
+   - Analyze the overall sentiment of the headline.
+   - Label: POSITIVE, NEGATIVE, NEUTRAL, or MIXED
+   - Score: -1.0 (most negative) to 1.0 (most positive). NEUTRAL = 0.0, MIXED = near 0.0.
+
+INPUT FORMAT:
+You will receive signals as a numbered list:
+[1|signal_id] Headline text here
+[2|signal_id] Another headline here
+
+OUTPUT FORMAT (strict JSON array, one object per signal):
+[
+  {
+    "id": "signal_id_from_input",
+    "entities": [
+      { "name": "Entity Name", "type": "ORG", "salience": 0.9 }
+    ],
+    "keywords": [
+      { "keyword": "topic keyword", "weight": 0.8 }
+    ],
+    "locations": [
+      { "name": "Location Name", "type": "COUNTRY", "countryCode": "US" }
+    ],
+    "sentiment": {
+      "label": "NEGATIVE",
+      "score": -0.6
+    }
+  }
+]
+
+CRITICAL:
+- Return ONLY the JSON array. No wrapping text, no markdown, no explanation.
+- Every signal in the input MUST have a corresponding object in the output.
+- If extraction yields nothing for a field, return an empty array (entities/keywords/locations).
+- The "id" field in each output object MUST exactly match the signal_id from the input.
 `;
 
 // ------------------------------------------------------------------------------
-// 4. CONTENT GENERATOR: TWITTER THREAD
+// 4. GEO BRIEFING (Location-based intelligence summary)
+// Used by: /api/geo/search
 // ------------------------------------------------------------------------------
-export const TWITTER_WRITER_AGENT_PROMPT = `
-ROLE:
-You are a VIRAL SOCIAL MEDIA EDITOR.
-Your job is to turn the Research Dossier into a high-engagement Twitter/X Thread.
 
-INPUTS:
-- Topic: {title}
-- Research Dossier: {dossier}
+// ------------------------------------------------------------------------------
+// 5. SIGNAL SIGNIFICANCE ANALYSIS (Narrative Intelligence)
+// Used by: /api/cron/trend-monitor (Phase 2 — AI enrichment)
+// ------------------------------------------------------------------------------
 
-STYLE RULES (Viral & Credible):
-- **Formatting:** Short lines. Lots of whitespace. No walls of text.
-- **Pacing:** Fast. One idea per tweet.
-- **Tone:** "Insider" tone. "Here is what you are not being told."
-- **Visuals:** Describe the image needed for the first tweet in [BRACKETS].
+export function buildSignalSignificancePrompt(
+  narrativeTitle: string,
+  narrativeSummary: string | null,
+  keywords: string[],
+  signals: { id: string; title: string; url: string }[],
+): string {
+  return `You are SIGNAL_ANALYST — a precision relevance engine for a narrative intelligence system.
+
+NARRATIVE CONTEXT:
+- Title: "${narrativeTitle}"
+- Summary: ${narrativeSummary ? `"${narrativeSummary}"` : "N/A"}
+- Tracked Keywords: [${keywords.join(", ")}]
+
+CANDIDATE SIGNALS:
+${signals.map((s, i) => `[${i + 1}|${s.id}] ${s.title}`).join("\n")}
 
 TASK:
-Write a 6-12 tweet thread:
+For each signal, determine if it is GENUINELY relevant to this narrative (not just a keyword coincidence).
+For relevant signals, assess impact and sentiment.
 
-- **Tweet 1 (The Hook):** Use the "Under-Reported Angle" or a shocking statistic. Must stop the scroll.
-- **Tweet 2 (The Setup):** What happened? (The Trigger).
-- **Tweet 3-5 (The Meat):** The Timeline and System View. Use the "Facts" from the dossier.
-- **Tweet 6 (The Visual):** Describe a chart/image from the "Visual Opportunities" section.
-- **Tweet 7 (The Conflict):** Who is fighting whom? (Stakeholder Map).
-- **Tweet 8 (The "Why it Matters"):** Impact on the reader.
-- **Tweet 9 (The Close):** A punchy summary line.
-- **Tweet 10 (CTA):** "Follow for more system decodes."
+RULES:
+- A signal about "Apple fruit prices" is NOT relevant to a narrative about "Apple Inc stock".
+- Be strict: only mark signals as relevant if they meaningfully advance or relate to the narrative.
+- Impact score 0-100: How significant is this development for the narrative? (0 = noise, 100 = game-changer)
+- Sentiment: -1.0 (very negative for the narrative subject) to 1.0 (very positive)
+- Summary: One concise sentence explaining WHY this signal matters to the narrative.
 
-(Strictly adhere to the facts in the dossier.)
-`;
+OUTPUT FORMAT (strict JSON array):
+[
+  {
+    "id": "signal_id",
+    "relevant": true,
+    "impactScore": 72,
+    "sentiment": -0.4,
+    "summary": "One sentence explaining significance to the narrative."
+  },
+  {
+    "id": "signal_id",
+    "relevant": false,
+    "impactScore": 0,
+    "sentiment": 0,
+    "summary": ""
+  }
+]
+
+CRITICAL:
+- Return ONLY the JSON array. No wrapping text.
+- Every signal MUST have a corresponding object.
+- The "id" field MUST exactly match the signal_id from input.`;
+}
 
 // ------------------------------------------------------------------------------
-// 5. CONTENT GENERATOR: VIDEO SCRIPT (High-Retention)
+// 6. SUB-NARRATIVE DISCOVERY
+// Used by: /api/cron/trend-monitor (Phase 4 — auto-split)
 // ------------------------------------------------------------------------------
-export const VIDEO_SCRIPT_AGENT_PROMPT = `
-ROLE:
-You are a DOCUMENTARY SCRIPTWRITER & PRODUCER.
-Your job is to turn the Research Dossier into a tight, high-retention YouTube video script (8-12 minutes).
 
-INPUTS:
-- Topic: {title}
-- Research Dossier: {dossier}
+export function buildSubNarrativePrompt(
+  parentTitle: string,
+  events: { title: string; summary: string | null; createdAt: string }[],
+): string {
+  return `You are NARRATIVE_SPLITTER — an intelligence analyst that identifies distinct sub-threads within a broader story.
 
-STYLE RULES (High-Stakes Explainer):
-- **Delivery:** "Data-first narration". Punchy sentences.
-- **Visuals:** You MUST include [VISUAL CUE] notes for the editor.
-- **Retention:** Every 30 seconds, introduce a new question or "twist".
-- **Tone:** "Let's be honest", "Ask yourself". Direct address to the audience.
+PARENT NARRATIVE: "${parentTitle}"
+
+RECENT EVENTS (${events.length}):
+${events.map((e, i) => `${i + 1}. ${e.title}${e.summary ? ` — ${e.summary}` : ""} (${e.createdAt})`).join("\n")}
 
 TASK:
-Write the script in this format:
+Identify 2-3 distinct SUB-NARRATIVES emerging from these events. Each sub-narrative should represent a clearly different thread or angle of the parent story.
 
-**SCENE 1: THE COLD OPEN (0:00-0:45)**
-- Start with the "Viral Hook" or highest "Number".
-- Visual: [Montage of news clips / Big Red Text]
-- Hook the audience immediately.
+RULES:
+- Only suggest sub-narratives if there are genuinely distinct threads (not just different days of the same thing).
+- Each sub-narrative needs a clear, specific title (not generic like "Latest Developments").
+- Keywords should be specific to that sub-thread, not just copies of the parent keywords.
+- If events are too homogeneous to split meaningfully, return an empty array.
 
-**SCENE 2: THE CONTEXT**
-- Explain the "System View".
-- Visual: [Animated Map / Timeline]
+OUTPUT FORMAT (strict JSON array):
+[
+  {
+    "title": "Specific Sub-Narrative Title",
+    "summary": "One sentence describing this thread.",
+    "keywords": ["keyword1", "keyword2", "keyword3"]
+  }
+]
 
-**SCENE 3: THE DEEP DIVE**
-- Go through the Chronological Timeline.
-- Use the "Quote Bank" for credibility.
+CRITICAL: Return ONLY the JSON array. Max 3 sub-narratives. Empty array if no clear split exists.`;
+}
 
-**SCENE 4: THE CONFLICT**
-- The Stakeholder Map. Who is the "Villain"? Who is the "Victim"?
-- Visual: [Split screen of opposing sides]
+// ------------------------------------------------------------------------------
+// 7. NARRATIVE ARC PHASE DETECTION
+// Used by: /api/cron/trend-monitor (Phase 5 — arc classification)
+// ------------------------------------------------------------------------------
 
-**SCENE 5: THE CONCLUSION**
-- What happens next?
-- Final Call to Action.
+export function buildArcPhasePrompt(
+  title: string,
+  dataPoints: { date: string; eventCount: number; avgSentiment: number; peakImpact: number }[],
+): string {
+  return `You are ARC_ANALYST — a narrative lifecycle classifier.
 
-(Include [Visual Cues] for B-roll based on the "Visual Opportunities" in the dossier.)
-`;
+NARRATIVE: "${title}"
+
+DAILY DATA (chronological):
+${dataPoints.map((d) => `${d.date}: ${d.eventCount} events, sentiment=${d.avgSentiment.toFixed(2)}, peak_impact=${d.peakImpact}`).join("\n")}
+
+TASK:
+Classify this narrative's current lifecycle phase based on the data pattern.
+
+PHASES:
+- EMERGENCE: Low event count, story is just appearing. Few signals, early days.
+- ESCALATION: Growing event count, increasing impact scores. Story is building momentum.
+- PEAK: Highest activity levels, maximum media attention. Events are frequent and high-impact.
+- RESOLUTION: Declining event count and impact. Story is winding down or being resolved.
+
+OUTPUT: Return ONLY one word — the phase name. Nothing else.`;
+}
+
+// ------------------------------------------------------------------------------
+// 8. GEO BRIEFING (Location-based intelligence summary)
+// Used by: /api/geo/search
+// ------------------------------------------------------------------------------
+
+export function buildGeoBriefingPrompt(
+  locationName: string,
+  scopeType: string,
+  signalHeadlines: string[],
+): string {
+  return `You are GEO_ANALYST — a geographic intelligence briefing engine.
+
+LOCATION: ${locationName} (${scopeType} scope)
+SIGNAL COUNT: ${signalHeadlines.length}
+
+RECENT SIGNALS FROM THIS AREA:
+${signalHeadlines.map((h, i) => `${i + 1}. ${h}`).join("\n")}
+
+TASK:
+Write a concise geographic intelligence briefing (2-3 paragraphs) covering:
+1. **Key Developments** — What is happening in/around ${locationName} right now?
+2. **Dominant Themes** — What patterns or recurring topics emerge from these signals?
+3. **Risk & Outlook** — Any escalation risks, economic impacts, or developments to watch?
+
+RULES:
+- Be concise and analytical, not journalistic. Write like a Bloomberg terminal briefing.
+- If signals are sparse or unrelated, say so honestly — do not fabricate connections.
+- Do not repeat headlines verbatim. Synthesize and analyze.
+- Output plain text, no markdown headers or bullet points. Just clean paragraphs.`;
+}

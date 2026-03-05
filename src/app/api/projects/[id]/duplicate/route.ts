@@ -5,16 +5,18 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { id } = await params;
+
   try {
     // 1. Get Original Project
     const original = await prisma.project.findUnique({
-      where: { id: params.id, userId: session.user.id },
+      where: { id, userId: session.user.id },
     });
 
     if (!original)

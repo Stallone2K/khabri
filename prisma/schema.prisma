@@ -46,6 +46,8 @@ model User {
   trendDataPoints TrendDataPoint[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  countryCode     String?          // ISO 3166-1 alpha-2 (auto-detected via geolocation)
+  countryName     String?          // "India", "Nigeria", etc. (from reverse geocoding)
   projects      Project[]
   rankedTrends  RankedTrend[]
 }
@@ -128,12 +130,107 @@ model TrendDataPoint {
 }
 
 model Signal {
-  id          String   @id @default(cuid())
-  title       String
-  url         String   @unique
-  source      String
-  publishedAt DateTime
-  createdAt   DateTime @default(now())
+  id             String           @id @default(cuid())
+  title          String
+  url            String           @unique
+  source         String
+  category       String?
+  publishedAt    DateTime
+  createdAt      DateTime         @default(now())
+
+  // --- Enrichment fields ---
+  isEnriched     Boolean          @default(false)
+  enrichedAt     DateTime?
+  sentiment      String?          // POSITIVE | NEGATIVE | NEUTRAL | MIXED
+  sentimentScore Float?           // -1.0 to 1.0
+
+  // --- Relations ---
+  entities       SignalEntity[]
+  keywords       SignalKeyword[]
+  locations      SignalLocation[]
+
+  @@index([isEnriched, createdAt])
+}
+
+model SignalEntity {
+  id        String @id @default(cuid())
+  signalId  String
+  signal    Signal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  name      String
+  type      String // PERSON | ORG | COMPANY | COUNTRY | LOCATION
+  salience  Float  // 0.0 to 1.0
+
+  @@index([signalId])
+  @@index([name, type])
+}
+
+model SignalKeyword {
+  id       String @id @default(cuid())
+  signalId String
+  signal   Signal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  keyword  String // lowercased, trimmed
+  weight   Float  // 0.0 to 1.0
+
+  @@index([signalId])
+  @@index([keyword])
+}
+
+model SignalLocation {
+  id           String    @id @default(cuid())
+  signalId     String
+  signal       Signal    @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  name         String
+  locationType String    // CITY | STATE | COUNTRY | REGION
+  countryCode  String?   // ISO 3166-1 alpha-2
+  lat          Float?
+  lng          Float?
+
+  locationId   String?
+  location     Location? @relation(fields: [locationId], references: [id])
+
+  @@index([signalId])
+  @@index([countryCode])
+  @@index([locationId])
+}
+
+// ==============================================================================
+// LOCATION HIERARCHY (Phase 3)
+// ==============================================================================
+
+model Location {
+  id          String     @id @default(cuid())
+  name        String
+  type        String     // REGION | COUNTRY | STATE | CITY
+  countryCode String?    // ISO 3166-1 alpha-2 (null for REGIONs)
+  parentId    String?
+  parent      Location?  @relation("LocationTree", fields: [parentId], references: [id])
+  children    Location[] @relation("LocationTree")
+  aliases     String[]
+  lat         Float?
+  lng         Float?
+  createdAt   DateTime   @default(now())
+
+  signalLocations SignalLocation[]
+
+  @@unique([name, type, parentId])
+  @@index([parentId])
+  @@index([type])
+  @@index([countryCode])
+}
+
+model FeedCatalog {
+  id                String    @id @default(cuid())
+  name              String
+  url               String    @unique
+  sourceLabel       String
+  category          String
+  region            String    @default("GLOBAL")
+  language          String    @default("en")
+  isActive          Boolean   @default(true)
+  lastFetchedAt     DateTime?
+  lastErrorAt       DateTime?
+  consecutiveErrors Int       @default(0)
+  createdAt         DateTime  @default(now())
 }
 
 model RankedTrend {
@@ -142,32 +239,140 @@ model RankedTrend {
   topic       String
   score       Int
   reason      String   @db.Text
+  category    String?
+  region      String?  // "DOMESTIC" | "INTERNATIONAL" (relative to user's country)
   originalUrl String?
   createdAt   DateTime @default(now())
   userId      String
   user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([userId, region, createdAt])
+}
+
+// ==============================================================================
+// ANOMALY DETECTION (Phase 2)
+// ==============================================================================
+
+model AnomalyBaseline {
+  id            String   @id @default(cuid())
+  dimension     String   // KEYWORD | ENTITY | COUNTRY | SENTIMENT
+  key           String   // "tariffs", "Donald Trump::PERSON", "IN", "sentiment::tariffs"
+  mean          Float    @default(0)
+  m2            Float    @default(0)
+  sampleCount   Int      @default(0)
+  lastValue     Float    @default(0)
+  lastUpdatedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@unique([dimension, key])
+  @@index([dimension])
+}
+
+model AnomalyEvent {
+  id             String    @id @default(cuid())
+  type           String    // KEYWORD_SPIKE | ENTITY_SURGE | SENTIMENT_SHIFT | GEO_CONCENTRATION
+  key            String    // same key format as AnomalyBaseline
+  label          String    // human-readable: "tariffs", "Donald Trump", "India"
+  zScore         Float
+  currentValue   Float
+  baselineMean   Float
+  baselineStdDev Float
+  severity       String    // ELEVATED | HIGH | CRITICAL
+  isResolved     Boolean   @default(false)
+  resolvedAt     DateTime?
+  autoResolvesAt DateTime?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([type, isResolved])
+  @@index([severity, isResolved])
+  @@index([isResolved, createdAt])
+  @@index([key, isResolved])
 }
 
 model Project {
   id             String   @id @default(cuid())
   title          String
-  // Types: BHUPEN_SCRIPT, BLOG_POST, TWITTER_THREAD
-  type           String   
-  // Status: DRAFT, RESEARCHING, RESEARCHED, GENERATING, COMPLETED, FAILED
+  type           String
+  // Status: DRAFT, DISCOVERING, TRACKING, DORMANT, COMPLETED, FAILED
   status         String   @default("DRAFT")
-  
-  // Stores the specific topic/brief
-  brief          Json?    
-  
-  // The raw Deep Research report or Research Dossier
-  researchData   String?  @db.Text 
-  
-  // The final generated content (Script, Blog HTML, Tweet Text)
+  brief          Json?
+  researchData   String?  @db.Text
   finalOutput    String?  @db.Text
-  
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   userId         String
   user           User     @relation(fields: [userId], references: [id])
+
+  narrativeNodes NarrativeNode[]
+}
+
+// ==============================================================================
+// NARRATIVE TREE (Phase 4)
+// ==============================================================================
+
+model NarrativeNode {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  parentId     String?
+  parent       NarrativeNode?  @relation("NarrativeTree", fields: [parentId], references: [id])
+  children     NarrativeNode[] @relation("NarrativeTree")
+
+  title        String
+  summary      String?   @db.Text
+  keywords     String[]
+  status       String    @default("ACTIVE")
+
+  signalCount  Int       @default(0)
+  lastSignalAt DateTime?
+  arcPhase     String?   // EMERGENCE | ESCALATION | PEAK | RESOLUTION
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  events       NarrativeEvent[]
+  stakeholders NarrativeStakeholder[]
+
+  @@index([projectId])
+  @@index([parentId])
+}
+
+model NarrativeEvent {
+  id          String   @id @default(cuid())
+  nodeId      String
+  node        NarrativeNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  title       String
+  summary     String?  @db.Text
+  sourceUrl   String?
+  impactScore Float    @default(0)
+  sentiment   String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([nodeId, createdAt])
+}
+
+model NarrativeStakeholder {
+  id           String   @id @default(cuid())
+  nodeId       String
+  node         NarrativeNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  name         String
+  type         String        // PERSON | ORG | COMPANY | COUNTRY
+  role         String?       // PROTAGONIST | ANTAGONIST | REGULATOR | OBSERVER
+  sentiment    Float?        // -1.0 to 1.0
+  mentionCount Int           @default(0)
+  lastSeenAt   DateTime?
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([nodeId, name, type])
+  @@index([nodeId])
 }
 

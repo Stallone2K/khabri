@@ -20,11 +20,11 @@ import {
 	Check,
 	X,
 	Plus,
-	FileText,
-	Video,
-	Hash,
-	Folder,
+	Tag,
 	MoreHorizontal,
+	EllipsisVertical,
+	LifeBuoy,
+	PanelLeft,
 	Trash2,
 	Copy,
 	ExternalLink
@@ -83,23 +83,20 @@ const getDomainName = (url: string) => {
 	}
 }
 
-const getProjectIcon = (type: string) => {
-	switch (type) {
-		case 'BHUPEN_SCRIPT': return <Video className="h-3 w-3 mr-2 text-red-500" />;
-		case 'TWITTER_THREAD': return <Hash className="h-3 w-3 mr-2 text-blue-500" />;
-		case 'BLOG_POST': return <FileText className="h-3 w-3 mr-2 text-green-500" />;
-		default: return <FileText className="h-3 w-3 mr-2 text-muted-foreground" />;
-	}
+
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+	collapsed?: boolean
+	onToggleCollapse?: () => void
 }
 
-export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ className, collapsed, onToggleCollapse, ...props }: AppSidebarProps) {
 	const { data: session } = useSession()
 	const user = session?.user
 	const router = useRouter()
 
 	const viewSource = (url?: string) => {
 		if (url) window.open(url, '_blank');
-		else toast.error("No source link available");
+		else toast.error("No Source Link Available");
 	}
 
 	// State
@@ -129,7 +126,6 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 	}, [session])
 
 	const fetchProjects = React.useCallback(async () => {
-		if (!session?.user) return
 		try {
 			const res = await fetch('/api/projects')
 			if (res.ok) setProjects(await res.json())
@@ -138,7 +134,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 		} finally {
 			setLoadingProjects(false)
 		}
-	}, [session])
+	}, [])
 
 	React.useEffect(() => {
 		fetchFeeds();
@@ -154,41 +150,41 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 			const res = await fetch('/api/projects', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title: "New Untitled Project", type: "BLOG_POST" })
+				body: JSON.stringify({ title: "New Tracked Trend", type: "TRACKED_TREND" })
 			});
 			if (res.ok) {
 				const newProject = await res.json();
 				await fetchProjects();
 				router.push(`/dashboard/project/${newProject.id}`);
-				toast.success("Project created");
+				toast.success("Project Created");
 			}
 		} catch (e) {
-			toast.error("Failed to create project");
+			toast.error("Failed To Create Project");
 		}
 	}
 
 	const deleteProject = async (id: string) => {
-		const toastId = toast.loading("Deleting...");
+		const toastId = toast.loading("Deleting\u2026");
 		try {
 			const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
 			if (!res.ok) throw new Error("Failed");
-			toast.success("Project deleted", { id: toastId });
+			toast.success("Project Deleted", { id: toastId });
 			await fetchProjects();
 			router.refresh();
 		} catch (e) {
-			toast.error("Failed to delete", { id: toastId });
+			toast.error("Failed To Delete", { id: toastId });
 		}
 	}
 
 	const duplicateProject = async (id: string) => {
-		const toastId = toast.loading("Duplicating...");
+		const toastId = toast.loading("Duplicating\u2026");
 		try {
 			const res = await fetch(`/api/projects/${id}/duplicate`, { method: 'POST' });
 			if (!res.ok) throw new Error("Failed");
-			toast.success("Project duplicated", { id: toastId });
+			toast.success("Project Duplicated", { id: toastId });
 			await fetchProjects();
 		} catch (e) {
-			toast.error("Failed to duplicate", { id: toastId });
+			toast.error("Failed To Duplicate", { id: toastId });
 		}
 	}
 
@@ -209,11 +205,11 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 				body: JSON.stringify({ title: editProjectTitle })
 			});
 			if (!res.ok) throw new Error("Failed");
-			toast.success("Renamed");
+			toast.success("Renamed Successfully");
 			await fetchProjects();
 			setEditingProjectId(null);
 		} catch (e) {
-			toast.error("Failed to rename");
+			toast.error("Failed To Rename");
 		}
 	}
 
@@ -231,9 +227,9 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 				body: JSON.stringify({ id: editingId, name: editName }),
 			});
 			if (!res.ok) throw new Error("Failed to update");
-			toast.success("Source renamed");
+			toast.success("Source Renamed");
 			await fetchFeeds(); setEditingId(null);
-		} catch (err) { toast.error("Failed to rename"); }
+		} catch (err) { toast.error("Failed To Rename"); }
 	}
 
 	const groupedFeeds = React.useMemo(() => {
@@ -250,9 +246,17 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 		<Sidebar className={cn("w-full h-full border-none bg-background", className)} {...props}>
 			{/* HEADER */}
 			<SidebarHeader className="py-6 px-4">
-				<div className="flex items-center gap-3">
+				<div className="flex items-center gap-3 group/header">
 					<Image src="/Lofo.png" alt="Logo" width={32} height={32} className="rounded" />
-					<span className="text-sm font-bold tracking-tight">Khabri</span>
+					<span className="text-sm font-bold tracking-tight flex-1">Khabri</span>
+					{onToggleCollapse && (
+						<button
+							className="h-7 w-7 flex items-center justify-center opacity-0 group-hover/header:opacity-100 transition-opacity cursor-pointer"
+							onClick={onToggleCollapse}
+						>
+							<PanelLeft className="h-4 w-4 text-muted-foreground" />
+						</button>
+					)}
 				</div>
 			</SidebarHeader>
 
@@ -273,20 +277,19 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 							<span className="text-sm font-medium">Sources</span>
 						</Link>
 					</Button>
-
 					{/* PROJECTS COLLAPSIBLE */}
 					<Collapsible className="w-full" defaultOpen>
 						<CollapsibleTrigger asChild>
 							<Button variant="ghost" className="w-full justify-start hover:bg-accent/50 h-9 group">
-								<Folder className="mr-3 h-4 w-4" />
-								<span className="text-sm font-medium flex-1 text-left">Content</span>
+								<Tag className="mr-3 h-4 w-4" />
+								<span className="text-sm font-medium flex-1 text-left">Tracked Trends</span>
 								<ChevronDown className="h-4 w-4 opacity-50 group-data-[state=open]:rotate-180 transition-transform" />
 							</Button>
 						</CollapsibleTrigger>
 						<CollapsibleContent className="space-y-1 pt-1 ml-4 border-l border-muted">
 							<Button variant="ghost" className="w-full justify-start h-8 text-muted-foreground hover:text-primary pl-4" onClick={createNewProject}>
 								<Plus className="mr-2 h-3 w-3" />
-								<span className="text-xs">New Project</span>
+								<span className="text-xs">Track Trend</span>
 							</Button>
 
 							{loadingProjects ? (
@@ -315,7 +318,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 										<div key={project.id} className="group/item relative flex items-center">
 											<Button variant="ghost" asChild className="w-full justify-start h-8 text-muted-foreground hover:text-foreground pl-4 pr-8">
 												<Link href={`/dashboard/project/${project.id}`}>
-													{getProjectIcon(project.type)}
+													<TrendingUp className="h-3 w-3 mr-2 text-muted-foreground" />
 													<span className="text-xs truncate max-w-[140px]" title={project.title}>
 														{project.title}
 													</span>
@@ -429,8 +432,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 				</Button>
 
 				{/* User Profile Block */}
-				<div className="flex items-center gap-3 rounded-xl p-2 bg-accent/30 border border-border/50">
-					{/* Avatar - shrink-0 ensures it doesn't get crushed */}
+				<div className="flex items-center gap-3 p-2">
 					<Avatar className="h-9 w-9 border shrink-0">
 						<AvatarImage
 							src={user?.image || undefined}
@@ -439,7 +441,6 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 						<AvatarFallback className="bg-muted text-muted-foreground">{user?.name?.[0]?.toUpperCase() ?? "U"}</AvatarFallback>
 					</Avatar>
 
-					{/* Text Column - flex-1 allows it to fill space, min-w-0 for truncating */}
 					<div className="flex flex-col flex-1 overflow-hidden min-w-0">
 						<span className="text-xs font-semibold truncate text-foreground">
 							{user?.name ?? "User"}
@@ -449,15 +450,25 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
 						</span>
 					</div>
 
-					{/* Sign Out - shrink-0 keeps it right aligned and fixed size */}
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-8 w-8 shrink-0 hover:bg-destructive/10 hover:text-destructive transition-colors ml-auto"
-						onClick={() => signOut()}
-					>
-						<LogOut className="h-4 w-4" />
-					</Button>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 ml-auto">
+								<EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" side="top" className="w-44 p-1 rounded-md text-[11px]">
+							<DropdownMenuItem className="text-[11px] h-7">
+								<Settings className="mr-2 h-3 w-3" /> Settings
+							</DropdownMenuItem>
+							<DropdownMenuItem className="text-[11px] h-7">
+								<Megaphone className="mr-2 h-3 w-3" /> Feedback
+							</DropdownMenuItem>
+							<DropdownMenuSeparator className="my-1" />
+							<DropdownMenuItem className="text-red-500 focus:text-red-500 text-[11px] h-7" onClick={() => signOut()}>
+								<LifeBuoy className="mr-2 h-3 w-3 text-red-500" /> Sign Out
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 			</SidebarFooter>
 		</Sidebar>

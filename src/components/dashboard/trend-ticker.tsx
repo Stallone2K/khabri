@@ -12,25 +12,43 @@ interface TickerItem {
 	change: 'up' | 'down' | 'neutral';
 }
 
-export function TrendTicker() {
+interface TrendTickerProps {
+	regionFilter?: string;
+}
+
+interface CriticalAnomaly {
+	id: string;
+	label: string;
+	zScore: number;
+}
+
+export function TrendTicker({ regionFilter = "ALL" }: TrendTickerProps) {
 	const [items, setItems] = useState<TickerItem[]>([]);
+	const [criticalAnomalies, setCriticalAnomalies] = useState<CriticalAnomaly[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		fetch('/api/trends/ticker')
+		const regionParam = regionFilter && regionFilter !== "ALL" ? `?region=${regionFilter}` : "";
+		fetch(`/api/trends/ticker${regionParam}`)
 			.then(res => res.json())
 			.then(data => {
-				setItems(data);
+				setItems(Array.isArray(data) ? data : []);
 				setLoading(false);
 			})
 			.catch(err => console.error(err));
-	}, []);
+
+		// Fetch CRITICAL anomalies for ticker
+		fetch("/api/intelligence/anomalies?active=true&severity=CRITICAL&limit=5")
+			.then(res => res.json())
+			.then(data => setCriticalAnomalies(data.anomalies || []))
+			.catch(() => {});
+	}, [regionFilter]);
 
 	if (loading || items.length === 0) return null;
 
 	return (
 		// FIX 1: The outer container must be explicitly relative and w-full
-		<div className="w-full bg-black border-y border-white/10 h-10 flex items-center relative overflow-hidden z-40">
+		<div className="w-full h-10 flex items-center relative overflow-hidden z-40">
 
 			{/* Label: Static width */}
 			<div className="bg-primary/10 text-primary px-4 h-full flex items-center justify-center text-xs font-bold uppercase tracking-wider border-r border-white/10 shrink-0 z-20 relative">
@@ -49,6 +67,13 @@ export function TrendTicker() {
 					autoFill={true} // Ensures it fills space smoothly without gaps
 					className="h-full flex items-center overflow-hidden"
 				>
+					{criticalAnomalies.map((anomaly) => (
+						<div key={`anomaly-${anomaly.id}`} className="flex items-center space-x-2 px-6 border-r border-red-500/20 h-full bg-red-500/5">
+							<span className="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Spike</span>
+							<span className="text-sm font-semibold text-red-400 whitespace-nowrap">{anomaly.label}</span>
+							<span className="text-xs font-mono font-bold text-red-500">z={anomaly.zScore.toFixed(1)}</span>
+						</div>
+					))}
 					{items.map((item) => (
 						<div key={item.id} className="flex items-center space-x-3 px-6 border-r border-white/5 h-full">
 
