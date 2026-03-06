@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/api-auth";
 import { enrichSignals } from "@/lib/ingestion/signal-enricher";
 import { resolveSignalLocations } from "@/lib/ingestion/location-resolver";
-
 export async function POST(req: Request) {
   // =========================================================================
   // 1. AUTHENTICATION — Cron secret or dev mode

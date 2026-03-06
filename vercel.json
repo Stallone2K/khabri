@@ -2,23 +2,19 @@
   "crons": [
     {
       "path": "/api/cron/ingest",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/cron/enrich",
-      "schedule": "5,20,35,50 * * * *"
-    },
-    {
-      "path": "/api/cron/rank",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/anomaly",
-      "schedule": "0 * * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/trend-monitor",
-      "schedule": "10,40 * * * *"
+      "schedule": "0 18 * * *"
     }
   ]
 }

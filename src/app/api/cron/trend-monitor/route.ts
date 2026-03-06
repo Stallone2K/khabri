@@ -5,7 +5,6 @@ import { analyzeSignalSignificance } from "@/lib/narrative-analysis";
 import { extractStakeholders } from "@/lib/narrative-stakeholders";
 import { discoverSubNarratives } from "@/lib/narrative-split";
 import { computeArcPhase } from "@/lib/narrative-arc";
-
 export async function POST(req: Request) {
   const isCron = verifyCronSecret(req);
   const isDev = process.env.NODE_ENV === "development";

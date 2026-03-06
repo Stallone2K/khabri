@@ -12,7 +12,6 @@ import {
   dimensionToType,
   type WelfordState,
 } from "@/lib/algorithms/anomaly-detection";
-
 export async function POST(req: Request) {
   // =========================================================================
   // 1. AUTH
