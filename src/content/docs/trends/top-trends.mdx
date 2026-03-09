@@ -1,0 +1,89 @@
+---
+title: "Top Trends"
+description: "Get the top trending topics with momentum indicators showing directional change and volume."
+---
+
+# Top Trends
+
+<Endpoint method="GET" path="/v1/trends/top" />
+
+Returns the highest-ranked trending topics along with momentum data. Each trend includes a directional `change` indicator (up, down, or neutral) and the current signal `volume`, making it easy to spot accelerating stories at a glance.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "limit", type: "integer", required: false, default: "10", description: "Number of top trends to return. Min 1, max 30." },
+  { name: "region", type: "string", required: false, default: "-", description: "Filter by region. One of `DOMESTIC` or `INTERNATIONAL`." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/trends/top" params="limit=5" />
+
+## Response
+
+<ResponseExample status={200} description="Top trends with momentum data">
+
+```json
+{
+  "data": [
+    {
+      "id": "trd_a1b2c3d4",
+      "rank": 1,
+      "topic": "Central Bank Interest Rate Decision",
+      "score": 94,
+      "change": "up",
+      "volume": 312
+    },
+    {
+      "id": "trd_e5f6g7h8",
+      "rank": 2,
+      "topic": "Semiconductor Export Controls",
+      "score": 87,
+      "change": "up",
+      "volume": 198
+    },
+    {
+      "id": "trd_i9j0k1l2",
+      "rank": 3,
+      "topic": "National Election Polling",
+      "score": 79,
+      "change": "neutral",
+      "volume": 156
+    }
+  ],
+  "meta": {
+    "generatedAt": "2026-03-06T09:00:00Z"
+  }
+}
+```
+
+</ResponseExample>
+
+## Error responses
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={500} description="Server error">
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "An unexpected error occurred"
+  }
+}
+```
+
+</ResponseExample>

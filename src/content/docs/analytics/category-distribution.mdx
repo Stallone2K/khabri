@@ -1,0 +1,61 @@
+---
+title: "Category Distribution"
+description: "Get the breakdown of signals by category within a time window."
+---
+
+# Category Distribution
+
+<Endpoint method="GET" path="/v1/analytics/categories" />
+
+Returns the distribution of signals across categories for a given time window. Each category includes its signal count and percentage of the total. The response also reports the total number of categorized signals and the count of uncategorized signals.
+
+Use this endpoint to understand which topics are dominating signal intake and how the category mix shifts over different time windows.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "hours", type: "integer", required: false, default: "24", description: "Lookback window in hours (1-72)" },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/analytics/categories" params="hours=24" />
+
+## Response
+
+<ResponseExample status={200} description="Category distribution breakdown">
+
+```json
+{
+  "data": {
+    "categories": [
+      { "name": "Technology", "count": 187, "percentage": 28.4 },
+      { "name": "Economy", "count": 156, "percentage": 23.7 },
+      { "name": "Politics", "count": 132, "percentage": 20.1 },
+      { "name": "Security", "count": 89, "percentage": 13.5 },
+      { "name": "Environment", "count": 52, "percentage": 7.9 },
+      { "name": "Health", "count": 42, "percentage": 6.4 }
+    ],
+    "total": 658,
+    "uncategorized": 34
+  },
+  "meta": {
+    "hours": 24
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>

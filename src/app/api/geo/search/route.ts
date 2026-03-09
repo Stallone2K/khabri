@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { authenticateRequest } from "@/lib/api-auth";
+import { logUsage, addRateLimitHeaders } from "@/lib/api-middleware";
 import { generateText } from "@/lib/gemini";
 import { buildGeoBriefingPrompt } from "@/lib/prompts";
 
@@ -17,9 +17,10 @@ interface LocationRecord {
 }
 
 export async function GET(req: Request) {
+  const startTime = Date.now();
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const auth = await authenticateRequest(req, "geo");
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -164,7 +165,7 @@ export async function GET(req: Request) {
       briefing = await generateText("gemini-2.0-flash", prompt, 0.3);
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       location: {
         id: location.id,
         name: location.name,
@@ -181,6 +182,11 @@ export async function GET(req: Request) {
       signalCount: signals.length,
       briefing,
     });
+    if (auth.authMode === "apikey" && auth.keyId) {
+      logUsage(auth.keyId, req, 200, Date.now() - startTime).catch(() => {});
+      addRateLimitHeaders(response, auth.rateLimit!, auth.remaining!, auth.resetMs!);
+    }
+    return response;
   } catch (error: unknown) {
     console.error("[GEO/SEARCH] Failed:", error);
     const message = error instanceof Error ? error.message : String(error);

@@ -1,0 +1,74 @@
+---
+title: "Webhooks"
+description: "Register webhooks to receive real-time event notifications from Khabri."
+---
+
+# Webhooks
+
+Webhooks let you receive real-time notifications when events occur on the Khabri platform. Instead of polling the API, register a webhook URL and we'll send you HTTP POST requests with event data.
+
+## How It Works
+
+1. **Register a webhook** with a URL and list of events you want to receive
+2. **Store the secret** returned in the response — it's shown only once
+3. **Receive events** as signed HTTP POST requests to your URL
+4. **Verify signatures** using the HMAC-SHA256 signature in the `X-Khabri-Signature` header
+
+## Event Types
+
+| Event | Description |
+|-------|-------------|
+| `trend.new` | A new trend has been detected |
+| `trend.spike` | A trend's score spiked above 90 |
+| `anomaly.detected` | An anomaly was detected |
+| `narrative.event` | A new event was added to a narrative |
+| `narrative.phase_change` | A narrative's arc phase changed |
+
+## Signature Verification
+
+Every webhook delivery includes an HMAC-SHA256 signature. Verify it to ensure the request is from Khabri:
+
+```typescript
+import crypto from "crypto";
+
+function verifyWebhook(payload: string, signature: string, secret: string) {
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(payload)
+    .digest("hex");
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected)
+  );
+}
+```
+
+## Retry Policy
+
+Failed deliveries (non-2xx responses or timeouts) are retried with exponential backoff:
+
+- **Attempt 1:** Immediate
+- **Attempt 2:** After 1 minute
+- **Attempt 3:** After 5 minutes
+- **Attempt 4:** After 30 minutes
+
+After 4 failed attempts, the delivery is marked as failed.
+
+## Quick Start
+
+Register a webhook to receive trend and anomaly events:
+
+<RequestExample method="POST" path="/v1/webhooks" body='{"url":"https://example.com/webhook","events":["trend.new","anomaly.detected"]}' />
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/webhooks` | Register a new webhook |
+| GET | `/v1/webhooks` | List your webhooks |
+| GET | `/v1/webhooks/{id}` | Get webhook details + deliveries |
+| DELETE | `/v1/webhooks/{id}` | Delete a webhook |
+
+## Authentication
+
+All webhook endpoints require a Bearer token with the `webhooks` scope. See [Authentication](/docs/authentication) for details.

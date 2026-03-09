@@ -1,0 +1,113 @@
+---
+title: "Geo Search"
+description: "Search for intelligence signals associated with a specific geographic location."
+---
+
+# Geo Search
+
+<Endpoint method="GET" path="/v1/geo/search" />
+
+Search for signals associated with a specific geographic location. The API resolves the location name, determines its scope within the location hierarchy (city, state, country, region), and returns matching signals along with an AI-generated briefing summarizing activity at that location.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "location", type: "string", required: true, default: "-", description: "Location name or alias to search for (e.g., `Mumbai`, `United States`, `EU`)." },
+  { name: "radius", type: "string", required: false, default: "-", description: "Resolution level to expand the search to. One of `CITY`, `STATE`, `COUNTRY`, `REGION`." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/geo/search" params="location=Mumbai" />
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `location` | object | The resolved location with `id`, `name`, `type`, and `countryCode`. |
+| `scope` | object | The scope used for the search with `id`, `name`, and `type`. |
+| `ancestors` | array | Parent locations in the hierarchy (e.g., city -> state -> country). |
+| `signals` | array | Matching signals at this location. |
+| `signalCount` | integer | Total number of matching signals. |
+| `briefing` | string or null | AI-generated summary of the situation at this location. |
+
+## Response
+
+<ResponseExample status={200} description="Geo search results with AI briefing">
+
+```json
+{
+  "data": {
+    "location": {
+      "id": "loc_mum01",
+      "name": "Mumbai",
+      "type": "CITY",
+      "countryCode": "IN"
+    },
+    "scope": {
+      "id": "loc_mum01",
+      "name": "Mumbai",
+      "type": "CITY"
+    },
+    "ancestors": [
+      { "name": "Maharashtra", "type": "STATE", "countryCode": "IN" },
+      { "name": "India", "type": "COUNTRY", "countryCode": "IN" }
+    ],
+    "signals": [
+      {
+        "id": "sig_x9k2m",
+        "title": "Mumbai Financial District Sees Record FDI Inflows",
+        "url": "https://example.com/mumbai-fdi",
+        "source": "Economic Times",
+        "category": "Economy",
+        "sentiment": "POSITIVE",
+        "sentimentScore": 0.72,
+        "publishedAt": "2026-03-06T06:30:00Z",
+        "createdAt": "2026-03-06T06:45:00Z"
+      },
+      {
+        "id": "sig_p4n7q",
+        "title": "Monsoon Preparedness Plans Activated Across Mumbai",
+        "url": "https://example.com/mumbai-monsoon",
+        "source": "Times of India",
+        "category": "Environment",
+        "sentiment": "NEUTRAL",
+        "sentimentScore": 0.05,
+        "publishedAt": "2026-03-05T14:00:00Z",
+        "createdAt": "2026-03-05T14:15:00Z"
+      }
+    ],
+    "signalCount": 23,
+    "briefing": "Mumbai is experiencing elevated financial activity with record foreign direct investment inflows into the financial district. Infrastructure preparations for the upcoming monsoon season are underway."
+  },
+  "meta": {}
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={400} description="Missing location parameter">
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "The 'location' query parameter is required"
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={404} description="Location not found">
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Could not resolve location"
+  }
+}
+```
+
+</ResponseExample>

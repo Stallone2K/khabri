@@ -1,0 +1,96 @@
+---
+title: "Search Signals"
+description: "Search signals by full-text query, entity name, location, or country code."
+---
+
+# Search Signals
+
+<Endpoint method="GET" path="/v1/signals/search" />
+
+Search across the signals database using text queries, entity names, locations, or country codes. At least one of `q`, `entity`, `location`, or `country` is required. Results are paginated and include full enrichment data.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "q", type: "string", required: false, default: "-", description: "Full-text search on signal titles." },
+  { name: "entity", type: "string", required: false, default: "-", description: "Entity name to search for (partial match)." },
+  { name: "entity_type", type: "string", required: false, default: "-", description: "Entity type filter. One of `PERSON`, `ORG`, `COMPANY`, `COUNTRY`, or `LOCATION`. Requires the `entity` parameter." },
+  { name: "location", type: "string", required: false, default: "-", description: "Location name to search for (partial match)." },
+  { name: "country", type: "string", required: false, default: "-", description: "ISO 3166-1 alpha-2 country code (e.g., `US`, `IN`)." },
+  { name: "page", type: "integer", required: false, default: "1", description: "Page number (1-based)." },
+  { name: "page_size", type: "integer", required: false, default: "25", description: "Items per page. Min 1, max 100." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/signals/search" params="q=tariff" />
+
+## Response
+
+<ResponseExample status={200} description="Matching signals">
+
+```json
+{
+  "data": [
+    {
+      "id": "sig_m4n5o6p7",
+      "title": "ACME Corp announces strategic acquisition in Southeast Asia",
+      "url": "https://example.com/article/acme-acquisition",
+      "source": "Reuters",
+      "category": "Business",
+      "sentiment": "POSITIVE",
+      "sentimentScore": 0.62,
+      "publishedAt": "2026-03-05T14:20:00Z",
+      "isEnriched": true,
+      "createdAt": "2026-03-05T14:25:00Z",
+      "entities": [
+        { "name": "ACME Corp", "type": "COMPANY", "salience": 0.95 },
+        { "name": "Southeast Asia", "type": "LOCATION", "salience": 0.7 }
+      ],
+      "keywords": [
+        { "keyword": "acquisition", "weight": 0.91 },
+        { "keyword": "expansion", "weight": 0.68 }
+      ],
+      "locations": [
+        { "name": "Singapore", "locationType": "COUNTRY", "countryCode": "SG", "lat": 1.3521, "lng": 103.8198 }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 37,
+    "page": 1,
+    "pageSize": 25,
+    "hasMore": true
+  }
+}
+```
+
+</ResponseExample>
+
+## Error responses
+
+<ResponseExample status={400} description="Missing search parameter">
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "At least one search parameter (q, entity, location, or country) is required"
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>

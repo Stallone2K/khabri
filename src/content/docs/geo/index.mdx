@@ -1,0 +1,40 @@
+---
+title: "Geo Intelligence"
+description: "Search signals by location, discover geographic hotspots, and retrieve country-level intelligence."
+---
+
+# Geo Intelligence
+
+The Geo API provides geographic context for intelligence signals. Every enriched signal in Khabri is tagged with location data -- countries, cities, states, and regions. The Geo endpoints let you query this spatial dimension to understand where activity is concentrated and what is happening in specific locations.
+
+## Core Concepts
+
+### Location Hierarchy
+
+Locations in Khabri follow a hierarchy: **Region > Country > State > City**. When you search for a city, the API resolves its full ancestry so you always know the broader geographic context.
+
+### AI Briefings
+
+The geo search and country intelligence endpoints include an AI-generated `briefing` field -- a concise natural-language summary of the situation at that location based on recent signals.
+
+### Hotspot Analysis
+
+Hotspots are countries ranked by signal density within a time window. This helps you quickly identify where global activity is concentrating, useful for situational awareness dashboards and alerting.
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/geo/search` | [Search signals by location](/docs/geo/geo-search) |
+| GET | `/v1/geo/hotspots` | [Geographic hotspot analysis](/docs/geo/geo-hotspots) |
+| GET | `/v1/geo/{countryCode}` | [Country-level intelligence](/docs/geo/country-intel) |
+
+## Quick Start
+
+Discover where global activity is concentrating:
+
+<RequestExample method="GET" path="/v1/geo/hotspots" params="hours=24&limit=5" />
+
+## Authentication
+
+All geo endpoints require a Bearer token with the `geo` scope. See [Authentication](/docs/authentication) for details.

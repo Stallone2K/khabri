@@ -1,0 +1,94 @@
+---
+title: "Khabri Intelligence API"
+description: "Real-time intelligence platform API providing access to trend analysis, signal monitoring, anomaly detection, narrative tracking, geographic intelligence, and analytics."
+---
+
+# Khabri Intelligence API
+
+The Khabri API gives you programmatic access to our intelligence platform. Track trends, monitor signals, detect anomalies, follow narratives, and analyze geographic patterns — all through a simple REST API.
+
+## Base URL
+
+```
+https://khabri.stallone.co.in/api/v1
+```
+
+All endpoints are prefixed with `/api/v1`. Authentication is required for every request via a Bearer token in the `Authorization` header.
+
+## Quick Start
+
+**1. Get your API key** from the [Developer Portal](/dashboard/developer).
+
+**2. Make your first request:**
+
+<RequestExample method="GET" path="/v1/trends" params="page=1&page_size=5" />
+
+**3. Explore the response:**
+
+```json
+{
+  "data": [
+    {
+      "id": "clx1abc...",
+      "rank": 1,
+      "topic": "AI Regulation Framework",
+      "score": 94,
+      "category": "Technology",
+      "region": "INTERNATIONAL"
+    }
+  ],
+  "meta": {
+    "total": 142,
+    "page": 1,
+    "pageSize": 5,
+    "hasMore": true
+  }
+}
+```
+
+## What You Can Build
+
+- **News aggregators** — Use Trends and Signals to surface breaking stories
+- **Risk dashboards** — Monitor Anomalies for sudden spikes in activity
+- **Research tools** — Track Narratives to follow evolving stories over time
+- **Geographic monitoring** — Use Geo endpoints for location-based intelligence
+- **Alert systems** — Subscribe to Webhooks or SSE streams for real-time notifications
+- **Analytics platforms** — Integrate volume, sentiment, and category data into your dashboards
+
+## API Sections
+
+| Section | Description | Endpoints |
+|---------|-------------|-----------|
+| [Trends](/docs/trends) | Ranked trend analysis and tracking | 3 |
+| [Signals](/docs/signals) | Signal monitoring with enrichment data | 3 |
+| [Anomalies](/docs/anomalies) | Anomaly detection and trending spikes | 2 |
+| [Narratives](/docs/narratives) | Narrative tree tracking and stakeholder analysis | 4 |
+| [Geo](/docs/geo) | Geographic intelligence and hotspot analysis | 3 |
+| [Analytics](/docs/analytics) | Signal volume, category, and sentiment analytics | 3 |
+| [Webhooks](/docs/webhooks) | Webhook registration and delivery management | 4 |
+| [Stream](/docs/stream) | Real-time Server-Sent Events | 1 |
+
+## Response Format
+
+All successful responses follow a consistent structure:
+
+```json
+{
+  "data": "...",
+  "meta": {
+    "total": 100,
+    "page": 1,
+    "pageSize": 25,
+    "hasMore": true
+  }
+}
+```
+
+- `data` — The requested resource(s). Can be an object or an array.
+- `meta` — Pagination info (for list endpoints) and rate limit details.
+
+## Need Help?
+
+- Check the [Authentication](/docs/authentication) guide to get started
+- Review [Error Handling](/docs/errors) for troubleshooting
+- Read about [Rate Limiting](/docs/rate-limiting) to optimize your usage

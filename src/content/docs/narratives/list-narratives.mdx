@@ -1,0 +1,87 @@
+---
+title: "List Narratives"
+description: "Retrieve a paginated list of root narratives across all projects."
+---
+
+# List Narratives
+
+<Endpoint method="GET" path="/v1/narratives" />
+
+Returns a paginated list of root-level narrative nodes across all projects. Each narrative includes its title, summary, keywords, signal count, arc phase, and child/event/stakeholder counts.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "page", type: "integer", required: false, default: "1", description: "Page number (1-based)." },
+  { name: "page_size", type: "integer", required: false, default: "25", description: "Items per page. Also accepts `limit`. Min 1, max 100." },
+  { name: "status", type: "string", required: false, default: "-", description: "Filter narratives by status." },
+  { name: "arc_phase", type: "string", required: false, default: "-", description: "Filter by arc phase. One of `EMERGENCE`, `ESCALATION`, `PEAK`, `RESOLUTION`." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/narratives" params="page=1&page_size=5" />
+
+## Response
+
+<ResponseExample status={200} description="Paginated list of root narratives">
+
+```json
+{
+  "data": [
+    {
+      "id": "nar_8f3k2m1",
+      "title": "Global Semiconductor Supply Realignment",
+      "summary": "Major chip manufacturers shifting production capacity amid new trade policies and domestic investment incentives.",
+      "keywords": ["semiconductors", "chip manufacturing", "trade policy", "CHIPS Act"],
+      "status": "active",
+      "signalCount": 142,
+      "lastSignalAt": "2026-03-06T09:15:00Z",
+      "arcPhase": "ESCALATION",
+      "projectId": "proj_abc123",
+      "childCount": 4,
+      "eventCount": 18,
+      "stakeholderCount": 12,
+      "createdAt": "2026-02-10T14:30:00Z",
+      "updatedAt": "2026-03-06T09:15:00Z"
+    },
+    {
+      "id": "nar_2j7p4n9",
+      "title": "Central Bank Digital Currency Pilots",
+      "summary": "Multiple central banks entering advanced testing phases for retail CBDCs.",
+      "keywords": ["CBDC", "digital currency", "central bank", "fintech"],
+      "status": "active",
+      "signalCount": 87,
+      "lastSignalAt": "2026-03-05T22:45:00Z",
+      "arcPhase": "EMERGENCE",
+      "projectId": "proj_abc123",
+      "childCount": 2,
+      "eventCount": 9,
+      "stakeholderCount": 8,
+      "createdAt": "2026-02-28T10:00:00Z",
+      "updatedAt": "2026-03-05T22:45:00Z"
+    }
+  ],
+  "meta": {
+    "total": 34,
+    "page": 1,
+    "pageSize": 25,
+    "hasMore": true
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>

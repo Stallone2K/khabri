@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/api-auth";
+import { emitEvent } from "@/lib/webhook-events";
 import {
   countKeywordsSince,
   countEntitiesSince,
@@ -249,6 +250,19 @@ export async function POST(req: Request) {
         },
       });
     });
+
+    // Emit webhook events for new anomalies (outside transaction)
+    for (const anomaly of newAnomalies) {
+      emitEvent("anomaly.detected", {
+        type: anomaly.type,
+        key: anomaly.key,
+        label: anomaly.label,
+        severity: anomaly.severity,
+        zScore: anomaly.zScore,
+        currentValue: anomaly.currentValue,
+        baselineMean: anomaly.baselineMean,
+      }, null); // Global — no user scoping
+    }
 
     const stats = {
       processed: allMetrics.length,

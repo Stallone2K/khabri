@@ -5,6 +5,7 @@ import { analyzeSignalSignificance } from "@/lib/narrative-analysis";
 import { extractStakeholders } from "@/lib/narrative-stakeholders";
 import { discoverSubNarratives } from "@/lib/narrative-split";
 import { computeArcPhase } from "@/lib/narrative-arc";
+import { emitEvent } from "@/lib/webhook-events";
 export async function POST(req: Request) {
   const isCron = verifyCronSecret(req);
   const isDev = process.env.NODE_ENV === "development";
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
       include: {
         narrativeNodes: {
           where: { status: "ACTIVE" },
-          select: { id: true, title: true, summary: true, keywords: true, lastSignalAt: true, signalCount: true, parentId: true },
+          select: { id: true, title: true, summary: true, keywords: true, lastSignalAt: true, signalCount: true, parentId: true, arcPhase: true },
         },
       },
     });
@@ -173,6 +174,16 @@ export async function POST(req: Request) {
           },
         });
 
+        // Emit webhook events for new narrative events
+        const matchedNode = project.narrativeNodes.find((n) => n.id === nodeId);
+        emitEvent("narrative.event", {
+          projectId: project.id,
+          nodeId,
+          nodeTitle: matchedNode?.title || "Unknown",
+          newSignals: signalsToCreate.length,
+          titles: signalsToCreate.slice(0, 5).map((s) => s.title),
+        }, project.userId);
+
         // Phase 3: Stakeholder Extraction
         try {
           const urls = signalsToCreate.map((s) => s.url);
@@ -208,7 +219,17 @@ export async function POST(req: Request) {
         const node = project.narrativeNodes.find((n) => n.id === nodeId);
         if (!node) continue;
         try {
-          await computeArcPhase(nodeId, node.title);
+          const oldPhase = node.arcPhase;
+          const newPhase = await computeArcPhase(nodeId, node.title);
+          if (newPhase && newPhase !== oldPhase) {
+            emitEvent("narrative.phase_change", {
+              projectId: project.id,
+              nodeId,
+              nodeTitle: node.title,
+              previousPhase: oldPhase || null,
+              newPhase,
+            }, project.userId);
+          }
         } catch (err) {
           console.warn(`[TREND-MONITOR] Arc phase update failed for node ${nodeId}:`, err);
         }

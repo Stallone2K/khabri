@@ -1,0 +1,61 @@
+---
+title: "Create Webhook"
+description: "Register a new webhook to receive event notifications."
+---
+
+# Create Webhook
+
+<Endpoint method="POST" path="/v1/webhooks" />
+
+Register a webhook URL to receive real-time event notifications. You can have up to 5 active webhooks per API key. The URL must use HTTPS.
+
+## Request Body
+
+<ParamTable params={[
+  { name: "url", type: "string", required: true, description: "HTTPS URL to receive webhook events" },
+  { name: "events", type: "string[]", required: true, description: "Event types to subscribe to" },
+]} />
+
+### Available Events
+
+`trend.new`, `trend.spike`, `anomaly.detected`, `narrative.event`, `narrative.phase_change`
+
+## Request Example
+
+<RequestExample method="POST" path="/v1/webhooks" body='{"url":"https://your-server.com/webhook","events":["trend.new","anomaly.detected"]}' />
+
+## Response
+
+<ResponseExample status={201} description="Webhook created">
+
+```json
+{
+  "data": {
+    "id": "clx9webhook1",
+    "url": "https://your-server.com/webhook",
+    "events": ["trend.new", "anomaly.detected"],
+    "secret": "whsec_a1b2c3d4e5f6...",
+    "isActive": true,
+    "createdAt": "2025-03-01T10:00:00Z"
+  }
+}
+```
+
+</ResponseExample>
+
+<Callout type="warning">
+  The `secret` is only returned once at creation time. Store it securely — you'll need it to verify webhook signatures.
+</Callout>
+
+<ResponseExample status={400} description="Invalid request">
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "URL must use HTTPS"
+  }
+}
+```
+
+</ResponseExample>

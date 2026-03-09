@@ -50,6 +50,8 @@ model User {
   countryName     String?          // "India", "Nigeria", etc. (from reverse geocoding)
   projects      Project[]
   rankedTrends  RankedTrend[]
+  apiKeys       ApiKey[]
+  webhooks      Webhook[]
 }
 
 model VerificationToken {
@@ -374,5 +376,109 @@ model NarrativeStakeholder {
 
   @@unique([nodeId, name, type])
   @@index([nodeId])
+}
+
+// ==============================================================================
+// API KEY AUTH & USAGE TRACKING (Phase 6A)
+// ==============================================================================
+
+model ApiKey {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  key           String    @unique
+  prefix        String
+  scopes        String[]
+  rateLimit     Int       @default(100)
+  requestCount  Int       @default(0)
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  usageLogs     ApiUsageLog[]
+
+  @@index([key])
+  @@index([userId])
+}
+
+model ApiUsageLog {
+  id             String   @id @default(cuid())
+  keyId          String
+  apiKey         ApiKey   @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  endpoint       String
+  method         String
+  statusCode     Int
+  responseTimeMs Int
+  createdAt      DateTime @default(now())
+
+  @@index([keyId, createdAt])
+  @@index([createdAt])
+}
+
+model ApiUsageDailyStat {
+  id            String   @id @default(cuid())
+  keyId         String
+  date          DateTime @db.Date
+  totalRequests Int      @default(0)
+  errorCount    Int      @default(0)
+  avgResponseMs Int      @default(0)
+  endpoints     Json?
+  createdAt     DateTime @default(now())
+
+  @@unique([keyId, date])
+  @@index([keyId])
+  @@index([date])
+}
+
+// ==============================================================================
+// WEBHOOKS & EVENT DELIVERY (Phase 6C)
+// ==============================================================================
+
+model Webhook {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url        String
+  events     String[]
+  secret     String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deliveries WebhookDelivery[]
+
+  @@index([userId])
+}
+
+model WebhookDelivery {
+  id            String    @id @default(cuid())
+  webhookId     String
+  webhook       Webhook   @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  eventType     String
+  payload       Json
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  lastAttemptAt DateTime?
+  nextRetryAt   DateTime?
+  statusCode    Int?
+  responseBody  String?   @db.Text
+  error         String?   @db.Text
+  createdAt     DateTime  @default(now())
+
+  @@index([webhookId, status])
+  @@index([status, nextRetryAt])
+  @@index([createdAt])
+}
+
+model WebhookEvent {
+  id        String   @id @default(cuid())
+  eventType String
+  userId    String?
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([eventType, userId, createdAt])
+  @@index([createdAt])
 }
 

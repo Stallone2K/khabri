@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthenticatedUserId } from "@/lib/api-auth";
+import { authenticateRequest } from "@/lib/api-auth";
+import { logUsage, addRateLimitHeaders } from "@/lib/api-middleware";
 
 export async function GET(req: Request) {
-  const userId = await getAuthenticatedUserId();
-  if (!userId) {
+  const startTime = Date.now();
+  const auth = await authenticateRequest(req, "anomalies");
+  if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -41,7 +43,7 @@ export async function GET(req: Request) {
       countMap[c.severity] = c._count.severity;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       anomalies,
       counts: {
         total: countMap.CRITICAL + countMap.HIGH + countMap.ELEVATED,
@@ -50,8 +52,16 @@ export async function GET(req: Request) {
         elevated: countMap.ELEVATED,
       },
     });
+    if (auth.authMode === "apikey" && auth.keyId) {
+      logUsage(auth.keyId, req, 200, Date.now() - startTime).catch(() => {});
+      addRateLimitHeaders(response, auth.rateLimit!, auth.remaining!, auth.resetMs!);
+    }
+    return response;
   } catch (error) {
     console.error("Anomalies API error:", error);
+    if (auth.authMode === "apikey" && auth.keyId) {
+      logUsage(auth.keyId, req, 500, Date.now() - startTime).catch(() => {});
+    }
     return NextResponse.json({ error: "Failed to fetch anomalies" }, { status: 500 });
   }
 }

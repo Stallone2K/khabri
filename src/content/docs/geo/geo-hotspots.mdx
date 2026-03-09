@@ -1,0 +1,98 @@
+---
+title: "Geo Hotspots"
+description: "Discover the most signal-dense countries within a configurable time window."
+---
+
+# Geo Hotspots
+
+<Endpoint method="GET" path="/v1/geo/hotspots" />
+
+Returns a ranked list of countries with the highest signal density within a configurable time window. Each hotspot includes the country's signal count, top category, and dominant sentiment. Use this endpoint for global situational awareness and to identify where activity is concentrating.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "hours", type: "integer", required: false, default: "24", description: "Time window in hours. Min 1, max 72." },
+  { name: "limit", type: "integer", required: false, default: "10", description: "Maximum number of hotspots to return. Min 1, max 20." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/geo/hotspots" params="hours=24&limit=5" />
+
+## Response Fields
+
+Each hotspot object contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `countryCode` | string | ISO 3166-1 alpha-2 country code. |
+| `name` | string | Country name. |
+| `signalCount` | integer | Number of signals originating from this country in the time window. |
+| `topCategory` | string or null | The most frequent signal category for this country. |
+| `dominantSentiment` | string or null | The prevailing sentiment across signals for this country. |
+
+## Response
+
+<ResponseExample status={200} description="Ranked geographic hotspots">
+
+```json
+{
+  "data": [
+    {
+      "countryCode": "US",
+      "name": "United States",
+      "signalCount": 312,
+      "topCategory": "Technology",
+      "dominantSentiment": "NEUTRAL"
+    },
+    {
+      "countryCode": "CN",
+      "name": "China",
+      "signalCount": 198,
+      "topCategory": "Economy",
+      "dominantSentiment": "NEGATIVE"
+    },
+    {
+      "countryCode": "IN",
+      "name": "India",
+      "signalCount": 145,
+      "topCategory": "Politics",
+      "dominantSentiment": "MIXED"
+    },
+    {
+      "countryCode": "GB",
+      "name": "United Kingdom",
+      "signalCount": 89,
+      "topCategory": "Economy",
+      "dominantSentiment": "NEUTRAL"
+    },
+    {
+      "countryCode": "DE",
+      "name": "Germany",
+      "signalCount": 76,
+      "topCategory": "Technology",
+      "dominantSentiment": "POSITIVE"
+    }
+  ],
+  "meta": {
+    "hours": 24,
+    "total": 5
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>

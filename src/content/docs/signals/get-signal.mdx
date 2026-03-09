@@ -1,0 +1,85 @@
+---
+title: "Get Signal"
+description: "Retrieve a single signal by ID with full enrichment data including entities, keywords, locations, and sentiment."
+---
+
+# Get Signal
+
+<Endpoint method="GET" path="/v1/signals/{id}" />
+
+Returns the complete details for a single signal, including all enrichment data. The response includes the `enrichedAt` timestamp indicating when enrichment processing was completed.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "id", type: "string", required: true, default: "-", description: "The unique signal identifier (e.g., `sig_x1y2z3w4`). Passed as a path parameter." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/signals/sig_x1y2z3w4" />
+
+## Response
+
+<ResponseExample status={200} description="Signal with full enrichment data">
+
+```json
+{
+  "data": {
+    "id": "sig_x1y2z3w4",
+    "title": "Reserve Bank holds rates steady amid inflation concerns",
+    "url": "https://example.com/article/rates-hold",
+    "source": "Financial Times",
+    "category": "Economy",
+    "sentiment": "NEUTRAL",
+    "sentimentScore": 0.05,
+    "publishedAt": "2026-03-06T06:30:00Z",
+    "isEnriched": true,
+    "createdAt": "2026-03-06T06:35:00Z",
+    "enrichedAt": "2026-03-06T06:36:12Z",
+    "entities": [
+      { "name": "Reserve Bank", "type": "ORG", "salience": 0.92 },
+      { "name": "Jane Smith", "type": "PERSON", "salience": 0.65 }
+    ],
+    "keywords": [
+      { "keyword": "interest rates", "weight": 0.88 },
+      { "keyword": "inflation", "weight": 0.74 },
+      { "keyword": "monetary policy", "weight": 0.61 }
+    ],
+    "locations": [
+      { "name": "New Delhi", "locationType": "CITY", "countryCode": "IN", "lat": 28.6139, "lng": 77.209 }
+    ]
+  },
+  "meta": {}
+}
+```
+
+</ResponseExample>
+
+## Error responses
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={404} description="Signal not found">
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Signal with the given ID does not exist"
+  }
+}
+```
+
+</ResponseExample>

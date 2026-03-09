@@ -1,0 +1,109 @@
+---
+title: "List Anomalies"
+description: "Retrieve detected anomaly events with filtering by type, severity, and resolution status."
+---
+
+# List Anomalies
+
+<Endpoint method="GET" path="/v1/anomalies" />
+
+Returns a paginated list of detected anomaly events along with a severity summary. Each anomaly includes statistical details (z-score, current value, baseline mean and standard deviation) so you can assess the magnitude of each deviation. By default, only active (unresolved) anomalies are returned.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "page", type: "integer", required: false, default: "1", description: "Page number (1-based)." },
+  { name: "page_size", type: "integer", required: false, default: "25", description: "Items per page. Min 1, max 100." },
+  { name: "type", type: "string", required: false, default: "-", description: "Filter by anomaly type. One of `KEYWORD_SPIKE`, `ENTITY_SURGE`, `SENTIMENT_SHIFT`, or `GEO_CONCENTRATION`." },
+  { name: "severity", type: "string", required: false, default: "-", description: "Filter by severity. One of `ELEVATED`, `HIGH`, or `CRITICAL`." },
+  { name: "active", type: "string", required: false, default: "true", description: "Filter by resolved status. `true` for active only, `false` for all." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/anomalies" params="severity=CRITICAL" />
+
+## Response
+
+<ResponseExample status={200} description="Anomaly events with severity summary">
+
+```json
+{
+  "data": {
+    "anomalies": [
+      {
+        "id": "ano_q8r9s0t1",
+        "type": "KEYWORD_SPIKE",
+        "key": "keyword:tariff",
+        "label": "tariff",
+        "zScore": 4.82,
+        "currentValue": 47,
+        "baselineMean": 8.3,
+        "baselineStdDev": 3.2,
+        "severity": "CRITICAL",
+        "isResolved": false,
+        "metadata": {
+          "topSources": ["Reuters", "Bloomberg"]
+        },
+        "createdAt": "2026-03-06T07:15:00Z"
+      },
+      {
+        "id": "ano_u2v3w4x5",
+        "type": "ENTITY_SURGE",
+        "key": "entity:ACME Corp",
+        "label": "ACME Corp",
+        "zScore": 3.14,
+        "currentValue": 29,
+        "baselineMean": 5.1,
+        "baselineStdDev": 2.8,
+        "severity": "HIGH",
+        "isResolved": false,
+        "metadata": null,
+        "createdAt": "2026-03-06T06:50:00Z"
+      }
+    ],
+    "summary": {
+      "total": 12,
+      "critical": 2,
+      "high": 4,
+      "elevated": 6
+    }
+  },
+  "meta": {
+    "total": 12,
+    "page": 1,
+    "pageSize": 25,
+    "hasMore": false
+  }
+}
+```
+
+</ResponseExample>
+
+## Error responses
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={500} description="Server error">
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "An unexpected error occurred"
+  }
+}
+```
+
+</ResponseExample>

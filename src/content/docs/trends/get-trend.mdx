@@ -1,0 +1,71 @@
+---
+title: "Get Trend"
+description: "Retrieve a single trend by its unique identifier."
+---
+
+# Get Trend
+
+<Endpoint method="GET" path="/v1/trends/{id}" />
+
+Returns the full details for a single trend, identified by its unique ID. Use this endpoint when you need to fetch a specific trend after discovering it through the list or top endpoints.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "id", type: "string", required: true, default: "-", description: "The unique trend identifier (e.g., `trd_a1b2c3d4`). Passed as a path parameter." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/trends/trd_a1b2c3d4" />
+
+## Response
+
+<ResponseExample status={200} description="Trend details">
+
+```json
+{
+  "data": {
+    "id": "trd_a1b2c3d4",
+    "rank": 1,
+    "topic": "Central Bank Interest Rate Decision",
+    "score": 94,
+    "reason": "Surging mentions across 12 sources in the last 3 hours",
+    "category": "Economy",
+    "region": "DOMESTIC",
+    "originalUrl": "https://example.com/article/rate-decision",
+    "createdAt": "2026-03-06T08:12:00Z"
+  },
+  "meta": {}
+}
+```
+
+</ResponseExample>
+
+## Error responses
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={404} description="Trend not found">
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Trend with the given ID does not exist"
+  }
+}
+```
+
+</ResponseExample>

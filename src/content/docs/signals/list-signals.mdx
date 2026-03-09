@@ -1,0 +1,96 @@
+---
+title: "List Signals"
+description: "Retrieve a paginated list of enriched signals with filtering by category, sentiment, source, and enrichment status."
+---
+
+# List Signals
+
+<Endpoint method="GET" path="/v1/signals" />
+
+Returns a paginated list of signals, each including its enrichment data (entities, keywords, locations, and sentiment). Use the query parameters to filter by category, sentiment, source, time window, or enrichment status.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "page", type: "integer", required: false, default: "1", description: "Page number (1-based)." },
+  { name: "page_size", type: "integer", required: false, default: "25", description: "Items per page. Min 1, max 100. Also accepts `limit`." },
+  { name: "category", type: "string", required: false, default: "-", description: "Filter by category (e.g., `Politics`, `Technology`)." },
+  { name: "sentiment", type: "string", required: false, default: "-", description: "Filter by sentiment. One of `POSITIVE`, `NEGATIVE`, `NEUTRAL`, or `MIXED`." },
+  { name: "source", type: "string", required: false, default: "-", description: "Filter by source name (partial match)." },
+  { name: "since", type: "string (ISO 8601)", required: false, default: "-", description: "Only return signals published after this date-time." },
+  { name: "enriched", type: "string", required: false, default: "-", description: "Filter by enrichment status. `true` or `false`." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/signals" params="page=1&page_size=5" />
+
+## Response
+
+<ResponseExample status={200} description="Paginated signals with enrichment data">
+
+```json
+{
+  "data": [
+    {
+      "id": "sig_x1y2z3w4",
+      "title": "Reserve Bank holds rates steady amid inflation concerns",
+      "url": "https://example.com/article/rates-hold",
+      "source": "Financial Times",
+      "category": "Economy",
+      "sentiment": "NEUTRAL",
+      "sentimentScore": 0.05,
+      "publishedAt": "2026-03-06T06:30:00Z",
+      "isEnriched": true,
+      "createdAt": "2026-03-06T06:35:00Z",
+      "entities": [
+        { "name": "Reserve Bank", "type": "ORG", "salience": 0.92 },
+        { "name": "Jane Smith", "type": "PERSON", "salience": 0.65 }
+      ],
+      "keywords": [
+        { "keyword": "interest rates", "weight": 0.88 },
+        { "keyword": "inflation", "weight": 0.74 }
+      ],
+      "locations": [
+        { "name": "New Delhi", "locationType": "CITY", "countryCode": "IN", "lat": 28.6139, "lng": 77.209 }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 1024,
+    "page": 1,
+    "pageSize": 25,
+    "hasMore": true
+  }
+}
+```
+
+</ResponseExample>
+
+## Error responses
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={500} description="Server error">
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "An unexpected error occurred"
+  }
+}
+```
+
+</ResponseExample>

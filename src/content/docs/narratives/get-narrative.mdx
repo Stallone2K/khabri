@@ -1,0 +1,108 @@
+---
+title: "Get Narrative"
+description: "Retrieve the full narrative tree including events, stakeholders, and child nodes."
+---
+
+# Get Narrative
+
+<Endpoint method="GET" path="/v1/narratives/{id}" />
+
+Returns the complete narrative tree for a given root or sub-narrative. The response includes the full hierarchy of child nodes, associated events, and stakeholders. This is the primary endpoint for understanding the structure of an evolving story.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "id", type: "string", required: true, default: "-", description: "The narrative node ID. Path parameter." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/narratives/nar_8f3k2m1" />
+
+## Response
+
+<ResponseExample status={200} description="Full narrative tree with nested children, events, and stakeholders">
+
+```json
+{
+  "data": {
+    "id": "nar_8f3k2m1",
+    "title": "Global Semiconductor Supply Realignment",
+    "summary": "Major chip manufacturers shifting production capacity amid new trade policies and domestic investment incentives.",
+    "keywords": ["semiconductors", "chip manufacturing", "trade policy"],
+    "status": "active",
+    "signalCount": 142,
+    "lastSignalAt": "2026-03-06T09:15:00Z",
+    "arcPhase": "ESCALATION",
+    "events": [
+      {
+        "id": "evt_a1b2c3",
+        "title": "TSMC Announces Arizona Fab Expansion",
+        "summary": "TSMC commits additional $20B to its Arizona campus, adding two advanced fabs.",
+        "sourceUrl": "https://example.com/tsmc-arizona",
+        "impactScore": 0.92,
+        "sentiment": "POSITIVE",
+        "createdAt": "2026-03-04T16:00:00Z"
+      },
+      {
+        "id": "evt_d4e5f6",
+        "title": "EU Chips Act Funding Round Opens",
+        "summary": "European Commission opens applications for second round of Chips Act subsidies.",
+        "sourceUrl": "https://example.com/eu-chips",
+        "impactScore": 0.78,
+        "sentiment": "POSITIVE",
+        "createdAt": "2026-03-01T10:30:00Z"
+      }
+    ],
+    "stakeholders": [
+      {
+        "name": "TSMC",
+        "type": "COMPANY",
+        "role": "PROTAGONIST",
+        "sentiment": 0.65,
+        "mentionCount": 48,
+        "lastSeenAt": "2026-03-06T09:15:00Z"
+      },
+      {
+        "name": "U.S. Department of Commerce",
+        "type": "ORG",
+        "role": "REGULATOR",
+        "sentiment": 0.30,
+        "mentionCount": 22,
+        "lastSeenAt": "2026-03-05T14:00:00Z"
+      }
+    ],
+    "children": [
+      {
+        "id": "nar_sub_001",
+        "title": "U.S. Domestic Chip Production Push",
+        "summary": "Government subsidies and corporate investments accelerating onshore manufacturing.",
+        "keywords": ["CHIPS Act", "domestic manufacturing", "subsidies"],
+        "status": "active",
+        "signalCount": 56,
+        "lastSignalAt": "2026-03-06T08:00:00Z",
+        "arcPhase": "ESCALATION",
+        "events": [],
+        "stakeholders": [],
+        "children": []
+      }
+    ]
+  },
+  "meta": {}
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={404} description="Narrative not found">
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Narrative not found"
+  }
+}
+```
+
+</ResponseExample>

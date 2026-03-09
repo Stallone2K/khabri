@@ -1,0 +1,110 @@
+---
+title: "Authentication"
+description: "Learn how to authenticate with the Khabri API using Bearer tokens."
+---
+
+# Authentication
+
+All API endpoints require authentication via Bearer token. Include your API key in the `Authorization` header of every request.
+
+## Authorization Header
+
+```
+Authorization: Bearer khabri_your_api_key
+```
+
+## Getting an API Key
+
+1. Go to the [Developer Portal](/dashboard/developer)
+2. Click **Create API Key**
+3. Give it a name (e.g., "Production Backend")
+4. Copy the key immediately — it's only shown once
+
+<Callout type="warning">
+  Store your API key securely. Never expose it in client-side code, public repositories, or browser requests.
+</Callout>
+
+## Key Format
+
+All Khabri API keys are prefixed with `khabri_` followed by a random hex string:
+
+```
+khabri_a5f0361d6f86544161eff5c3c738d941
+```
+
+## Making an Authenticated Request
+
+<RequestExample method="GET" path="/v1/trends" params="page=1&page_size=5" />
+
+## Scopes
+
+API keys have access to all endpoint groups:
+
+| Scope | Endpoints |
+|-------|-----------|
+| `trends` | `/v1/trends/*` |
+| `signals` | `/v1/signals/*` |
+| `anomalies` | `/v1/anomalies/*` |
+| `narratives` | `/v1/narratives/*` |
+| `geo` | `/v1/geo/*` |
+| `analytics` | `/v1/analytics/*` |
+| `webhooks` | `/v1/webhooks/*`, `/v1/stream` |
+
+## Environment Variables
+
+Store your API key as an environment variable rather than hardcoding it:
+
+```bash
+# .env (never commit this file)
+KHABRI_API_KEY=khabri_a5f0361d6f86544161eff5c3c738d941
+```
+
+```python
+import os
+api_key = os.environ["KHABRI_API_KEY"]
+```
+
+```javascript
+const apiKey = process.env.KHABRI_API_KEY;
+```
+
+```go
+apiKey := os.Getenv("KHABRI_API_KEY")
+```
+
+## Key Rotation
+
+If you suspect your API key has been compromised:
+
+1. Go to the [Developer Portal](/dashboard/developer)
+2. Create a new key with the same scopes
+3. Update your application to use the new key
+4. Delete the compromised key
+
+<Callout type="info">
+  You can have multiple active keys simultaneously, making zero-downtime key rotation easy.
+</Callout>
+
+## Error Responses
+
+If authentication fails, you'll receive a `401 Unauthorized` response:
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+If your key doesn't have the required scope, you'll get `403 Forbidden`:
+
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "API key missing required scope: trends"
+  }
+}
+```

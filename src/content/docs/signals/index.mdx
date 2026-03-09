@@ -1,0 +1,37 @@
+---
+title: "Signals"
+description: "Signal monitoring endpoints with entity extraction, sentiment analysis, and location enrichment."
+---
+
+# Signals
+
+The Signals API gives you access to Khabri's enriched intelligence signals. Every signal represents a discrete piece of information -- an article, report, or data point -- that has been ingested, classified, and enriched with extracted entities, keywords, sentiment scores, and geographic locations.
+
+Signals are the foundational data layer that powers trends, anomalies, and narratives. Use these endpoints to browse, search, and inspect individual signals.
+
+## Enrichment data
+
+Each signal can include the following enrichment fields when available:
+
+- **Entities** -- Named entities (people, organizations, companies, countries, locations) with salience scores.
+- **Keywords** -- Weighted keywords extracted from the content.
+- **Locations** -- Geographic locations with type classification and coordinates.
+- **Sentiment** -- Overall sentiment label (POSITIVE, NEGATIVE, NEUTRAL, MIXED) and a numeric score from -1 to 1.
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | [/v1/signals](/docs/signals/list-signals) | Paginated list of signals with enrichment data |
+| GET | [/v1/signals/search](/docs/signals/search-signals) | Search signals by text, entity, or location |
+| GET | [/v1/signals/{id}](/docs/signals/get-signal) | Retrieve a single signal with full enrichment |
+
+## Quick Start
+
+Fetch the latest enriched signals:
+
+<RequestExample method="GET" path="/v1/signals" params="page=1&page_size=5" />
+
+## Authentication
+
+All Signals endpoints require a Bearer token with the `signals` scope. See [Authentication](/docs/authentication) for details.

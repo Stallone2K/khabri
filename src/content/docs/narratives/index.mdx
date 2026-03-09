@@ -1,0 +1,50 @@
+---
+title: "Narratives"
+description: "Track evolving stories through narrative trees, stakeholders, and arc timelines."
+---
+
+# Narratives
+
+The Narratives API lets you track how stories evolve over time. Khabri automatically clusters related signals into **narrative trees** -- hierarchical structures where a root narrative branches into sub-narratives as the story develops.
+
+## Core Concepts
+
+### Narrative Trees
+
+Every narrative starts as a root node. As new signals arrive and the story branches, child nodes are created beneath it. Each node carries its own summary, keywords, signal count, and arc phase. You can retrieve the full tree for any narrative to understand the complete structure of a story.
+
+### Arc Phases
+
+Narratives progress through four phases:
+
+- **EMERGENCE** -- The story is first detected. Signal volume is low and the narrative is forming.
+- **ESCALATION** -- Activity is increasing. More sources are covering the story and sub-narratives may be forming.
+- **PEAK** -- The narrative has reached maximum intensity. Signal density is at its highest.
+- **RESOLUTION** -- The story is winding down. New signals are rare and the narrative is stabilizing.
+
+### Stakeholders
+
+Each narrative tracks the key actors involved -- people, organizations, companies, and countries. Stakeholders are assigned roles (protagonist, antagonist, regulator, observer) and carry sentiment scores derived from the signals they appear in.
+
+### Timeline Events
+
+Significant moments in a narrative are captured as events. Each event has an impact score, sentiment, and source URL. The timeline endpoint returns these events in chronological order along with the narrative's arc phase data.
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/narratives` | [List root narratives](/docs/narratives/list-narratives) |
+| GET | `/v1/narratives/{id}` | [Get full narrative tree](/docs/narratives/get-narrative) |
+| GET | `/v1/narratives/{id}/timeline` | [Get narrative timeline](/docs/narratives/narrative-timeline) |
+| GET | `/v1/narratives/{id}/stakeholders` | [List narrative stakeholders](/docs/narratives/narrative-stakeholders) |
+
+## Quick Start
+
+Fetch the latest narratives:
+
+<RequestExample method="GET" path="/v1/narratives" params="page=1&page_size=5" />
+
+## Authentication
+
+All narrative endpoints require a Bearer token with the `narratives` scope. See [Authentication](/docs/authentication) for details.

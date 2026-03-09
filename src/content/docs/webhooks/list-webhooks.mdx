@@ -1,0 +1,34 @@
+---
+title: "List Webhooks"
+description: "List all registered webhooks for your API key."
+---
+
+# List Webhooks
+
+<Endpoint method="GET" path="/v1/webhooks" />
+
+Returns all active webhooks registered with your API key.
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/webhooks" />
+
+## Response
+
+<ResponseExample status={200} description="List of webhooks">
+
+```json
+{
+  "data": [
+    {
+      "id": "clx9webhook1",
+      "url": "https://your-server.com/webhook",
+      "events": ["trend.new", "anomaly.detected"],
+      "isActive": true,
+      "createdAt": "2025-03-01T10:00:00Z"
+    }
+  ]
+}
+```
+
+</ResponseExample>

@@ -1,0 +1,34 @@
+---
+title: "Anomalies"
+description: "Anomaly detection endpoints for identifying unusual spikes, surges, and shifts in the signal stream."
+---
+
+# Anomalies
+
+The Anomalies API surfaces statistically unusual patterns detected in Khabri's signal stream. An anomaly is flagged when a keyword, entity, sentiment, or geographic concentration deviates significantly from its historical baseline, measured using z-scores.
+
+Anomalies are classified into four types:
+
+- **KEYWORD_SPIKE** -- A keyword appears far more frequently than its baseline.
+- **ENTITY_SURGE** -- A named entity (person, org, company) is mentioned at an abnormal rate.
+- **SENTIMENT_SHIFT** -- The overall sentiment distribution changes unexpectedly.
+- **GEO_CONCENTRATION** -- Signals become unusually concentrated in a specific geography.
+
+Each anomaly includes a severity level (ELEVATED, HIGH, or CRITICAL) based on the magnitude of the deviation.
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | [/v1/anomalies](/docs/anomalies/list-anomalies) | List detected anomaly events with severity summary |
+| GET | [/v1/anomalies/trending](/docs/anomalies/trending-anomalies) | Trending anomalies with 24-hour sparkline data |
+
+## Quick Start
+
+Fetch critical anomalies:
+
+<RequestExample method="GET" path="/v1/anomalies" params="severity=CRITICAL" />
+
+## Authentication
+
+All Anomalies endpoints require a Bearer token with the `anomalies` scope. See [Authentication](/docs/authentication) for details.

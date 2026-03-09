@@ -27,7 +27,8 @@ import {
 	PanelLeft,
 	Trash2,
 	Copy,
-	ExternalLink
+	ExternalLink,
+	KeyRound
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -416,6 +417,12 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, ...props }:
 						<Link href="/dashboard/market">
 							<TrendingUp className="mr-3 h-4 w-4" />
 							<span className="text-sm font-medium">Market</span>
+						</Link>
+					</Button>
+					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
+						<Link href="/dashboard/developer">
+							<KeyRound className="mr-3 h-4 w-4" />
+							<span className="text-sm font-medium">API & Docs</span>
 						</Link>
 					</Button>
 				</div>

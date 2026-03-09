@@ -1,0 +1,95 @@
+---
+title: "Trending Anomalies"
+description: "Get the most significant trending anomalies with 24-hour sparkline data for visualization."
+---
+
+# Trending Anomalies
+
+<Endpoint method="GET" path="/v1/anomalies/trending" />
+
+Returns the most significant trending anomalies, ranked by z-score. Each result includes a `sparkline` array of 24 hourly data points representing the metric's value over the past 24 hours, suitable for rendering inline charts. You can filter by dimension type to focus on keyword or entity anomalies.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "limit", type: "integer", required: false, default: "10", description: "Number of trending anomalies to return. Min 1, max 20." },
+  { name: "type", type: "string", required: false, default: "-", description: "Filter by dimension type. One of `keyword` or `entity`." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/anomalies/trending" params="limit=5" />
+
+## Response
+
+<ResponseExample status={200} description="Trending anomalies with sparkline data">
+
+```json
+{
+  "data": [
+    {
+      "key": "keyword:tariff",
+      "label": "tariff",
+      "dimension": "KEYWORD",
+      "zScore": 4.82,
+      "severity": "CRITICAL",
+      "currentValue": 47,
+      "baselineMean": 8.3,
+      "sparkline": [2, 3, 5, 4, 6, 8, 7, 9, 12, 15, 18, 22, 28, 31, 35, 38, 40, 42, 44, 45, 46, 47, 47, 47]
+    },
+    {
+      "key": "entity:ACME Corp",
+      "label": "ACME Corp",
+      "dimension": "ENTITY",
+      "zScore": 3.14,
+      "severity": "HIGH",
+      "currentValue": 29,
+      "baselineMean": 5.1,
+      "sparkline": [3, 4, 3, 5, 4, 6, 5, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 25, 26, 27, 28, 29, 29, 29]
+    },
+    {
+      "key": "keyword:sanctions",
+      "label": "sanctions",
+      "dimension": "KEYWORD",
+      "zScore": 2.67,
+      "severity": "ELEVATED",
+      "currentValue": 19,
+      "baselineMean": 6.0,
+      "sparkline": [4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 17, 18, 18, 19, 19, 19, 19]
+    }
+  ],
+  "meta": {
+    "generatedAt": "2026-03-06T09:00:00Z"
+  }
+}
+```
+
+</ResponseExample>
+
+## Error responses
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={500} description="Server error">
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "An unexpected error occurred"
+  }
+}
+```
+
+</ResponseExample>

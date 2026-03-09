@@ -1,0 +1,34 @@
+---
+title: "Trends"
+description: "Ranked trend analysis and tracking endpoints for the Khabri Intelligence API."
+---
+
+# Trends
+
+The Trends API provides access to Khabri's real-time trend ranking engine. Trends are scored and ranked based on signal volume, velocity, and cross-source corroboration, giving you a prioritized view of what matters right now.
+
+Each trend includes a topic label, a computed score, an optional category and region classification, and a reference to the originating source.
+
+## Use cases
+
+- **Newsroom dashboards** -- surface the most important stories as they emerge.
+- **Competitive intelligence** -- track topics relevant to your industry in real time.
+- **Regional monitoring** -- filter by DOMESTIC or INTERNATIONAL to focus on the geography that matters.
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | [/v1/trends](/docs/trends/list-trends) | Paginated list of ranked trends with filtering and sorting |
+| GET | [/v1/trends/top](/docs/trends/top-trends) | Top trending topics with momentum data |
+| GET | [/v1/trends/{id}](/docs/trends/get-trend) | Retrieve a single trend by ID |
+
+## Quick Start
+
+Fetch the latest ranked trends:
+
+<RequestExample method="GET" path="/v1/trends" params="page=1&page_size=5" />
+
+## Authentication
+
+All Trends endpoints require a Bearer token with the `trends` scope. See [Authentication](/docs/authentication) for details.

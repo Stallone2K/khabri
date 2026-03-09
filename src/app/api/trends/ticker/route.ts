@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authenticateRequest } from "@/lib/api-auth";
+import { logUsage, addRateLimitHeaders } from "@/lib/api-middleware";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  let userId = session?.user?.id;
-
-  if (!userId) {
-    const firstUser = await prisma.user.findFirst();
-    userId = firstUser?.id;
-  }
-
-  if (!userId)
+  const startTime = Date.now();
+  const auth = await authenticateRequest(req, "trends");
+  if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = auth.userId;
 
   try {
     const { searchParams } = new URL(req.url);
@@ -95,8 +91,16 @@ export async function GET(req: Request) {
       }),
     );
 
-    return NextResponse.json(tickerData);
+    const response = NextResponse.json(tickerData);
+    if (auth.authMode === "apikey" && auth.keyId) {
+      logUsage(auth.keyId, req, 200, Date.now() - startTime).catch(() => {});
+      addRateLimitHeaders(response, auth.rateLimit!, auth.remaining!, auth.resetMs!);
+    }
+    return response;
   } catch (error) {
+    if (auth.authMode === "apikey" && auth.keyId) {
+      logUsage(auth.keyId, req, 500, Date.now() - startTime).catch(() => {});
+    }
     return NextResponse.json({ error: "Ticker failed" }, { status: 500 });
   }
 }

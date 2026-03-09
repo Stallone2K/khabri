@@ -1,0 +1,48 @@
+---
+title: "Get Webhook"
+description: "Get webhook details including recent delivery history."
+---
+
+# Get Webhook
+
+<Endpoint method="GET" path="/v1/webhooks/{id}" />
+
+Returns details for a specific webhook, including the last 20 delivery attempts.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "id", type: "string", required: true, description: "Webhook ID" },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/webhooks/clx9webhook1" />
+
+## Response
+
+<ResponseExample status={200} description="Webhook details with deliveries">
+
+```json
+{
+  "data": {
+    "id": "clx9webhook1",
+    "url": "https://your-server.com/webhook",
+    "events": ["trend.new", "anomaly.detected"],
+    "isActive": true,
+    "createdAt": "2025-03-01T10:00:00Z",
+    "deliveries": [
+      {
+        "id": "clx9delivery1",
+        "event": "trend.new",
+        "status": "DELIVERED",
+        "statusCode": 200,
+        "attemptCount": 1,
+        "createdAt": "2025-03-01T12:30:00Z"
+      }
+    ]
+  }
+}
+```
+
+</ResponseExample>

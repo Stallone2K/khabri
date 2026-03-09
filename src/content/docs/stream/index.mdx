@@ -1,0 +1,122 @@
+---
+title: "Real-Time Events"
+description: "Subscribe to live events via Server-Sent Events (SSE)."
+---
+
+# Real-Time Events
+
+<Endpoint method="GET" path="/v1/stream" />
+
+Connect to a real-time event stream using Server-Sent Events (SSE). Receive instant notifications when trends, anomalies, or narrative events occur.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "events", type: "string", required: false, description: "Comma-separated event types to filter. Omit for all events." },
+]} />
+
+### Available Event Types
+
+`trend.new`, `trend.spike`, `anomaly.detected`, `narrative.event`, `narrative.phase_change`
+
+## Connection
+
+```bash
+curl -N "https://khabri.stallone.co.in/api/v1/stream?events=trend.new,anomaly.detected" \
+  -H "Authorization: Bearer khabri_YOUR_KEY"
+```
+
+## Event Format
+
+Each event is delivered as an SSE message with the event type and JSON data:
+
+```
+event: trend.new
+data: {"type":"trend.new","data":{"id":"clx1abc","topic":"AI Regulation","score":94},"timestamp":"2025-03-01T10:30:00Z"}
+
+event: heartbeat
+data: {"timestamp":"2025-03-01T10:30:30Z"}
+```
+
+## JavaScript Example
+
+```javascript
+const eventSource = new EventSource(
+  "https://khabri.stallone.co.in/api/v1/stream?events=anomaly.detected",
+  { headers: { "Authorization": "Bearer khabri_YOUR_KEY" } }
+);
+
+eventSource.addEventListener("anomaly.detected", (event) => {
+  const data = JSON.parse(event.data);
+  console.log("Anomaly:", data.data.label, data.data.severity);
+});
+
+eventSource.addEventListener("heartbeat", () => {
+  console.log("Connection alive");
+});
+
+eventSource.onerror = () => {
+  console.log("Connection lost, reconnecting...");
+};
+```
+
+## Python Example
+
+```python
+import sseclient
+import requests
+
+url = "https://khabri.stallone.co.in/api/v1/stream?events=anomaly.detected"
+headers = {"Authorization": "Bearer khabri_YOUR_KEY"}
+
+response = requests.get(url, headers=headers, stream=True)
+client = sseclient.SSEClient(response)
+
+for event in client.events():
+    if event.event == "anomaly.detected":
+        print(f"Anomaly: {event.data}")
+```
+
+## Go Example
+
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, _ := http.NewRequest("GET",
+		"https://khabri.stallone.co.in/api/v1/stream?events=anomaly.detected", nil)
+	req.Header.Set("Authorization", "Bearer khabri_YOUR_KEY")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	var eventType string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "event: ") {
+			eventType = strings.TrimPrefix(line, "event: ")
+		} else if strings.HasPrefix(line, "data: ") {
+			data := strings.TrimPrefix(line, "data: ")
+			fmt.Printf("[%s] %s\n", eventType, data)
+		}
+	}
+}
+```
+
+## Connection Details
+
+- A **heartbeat** event is sent every 30 seconds to keep the connection alive
+- Events are scoped to your API key — you only receive events for data you have access to
+- If the connection drops, reconnect automatically (SSE clients handle this natively)
+- Requires the `webhooks` scope on your API key

@@ -1,0 +1,33 @@
+---
+title: "Delete Webhook"
+description: "Delete a registered webhook."
+---
+
+# Delete Webhook
+
+<Endpoint method="DELETE" path="/v1/webhooks/{id}" />
+
+Permanently deletes a webhook. It will stop receiving event notifications immediately.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "id", type: "string", required: true, description: "Webhook ID" },
+]} />
+
+## Request Example
+
+<RequestExample method="DELETE" path="/v1/webhooks/clx9webhook1" />
+
+## Response
+
+<ResponseExample status={200} description="Webhook deleted">
+
+```json
+{
+  "success": true,
+  "message": "Webhook deleted"
+}
+```
+
+</ResponseExample>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authenticateRequest } from "@/lib/api-auth";
+import { logUsage, addRateLimitHeaders } from "@/lib/api-middleware";
 
 const STOP_WORDS = new Set([
   "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
@@ -19,16 +19,12 @@ const STOP_WORDS = new Set([
 ]);
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-
-  let userId = session?.user?.id;
-  if (!userId) {
-    const firstUser = await prisma.user.findFirst();
-    userId = firstUser?.id;
-  }
-
-  if (!userId)
+  const reqStartTime = Date.now();
+  const auth = await authenticateRequest(req, "trends");
+  if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = auth.userId;
 
   try {
     const { searchParams } = new URL(req.url);
@@ -178,7 +174,7 @@ export async function GET(req: Request) {
     // -----------------------------------------------------------------------
     // 6. Return
     // -----------------------------------------------------------------------
-    return NextResponse.json({
+    const response = NextResponse.json({
       chartData,
       trends: topTrends.map((t) => ({
         rank: t.rank,
@@ -186,8 +182,16 @@ export async function GET(req: Request) {
         key: `trend_${t.rank}`,
       })),
     });
+    if (auth.authMode === "apikey" && auth.keyId) {
+      logUsage(auth.keyId, req, 200, Date.now() - reqStartTime).catch(() => {});
+      addRateLimitHeaders(response, auth.rateLimit!, auth.remaining!, auth.resetMs!);
+    }
+    return response;
   } catch (error) {
     console.error("Graph API Error:", error);
+    if (auth.authMode === "apikey" && auth.keyId) {
+      logUsage(auth.keyId, req, 500, Date.now() - reqStartTime).catch(() => {});
+    }
     return NextResponse.json({ error: "Graph failed" }, { status: 500 });
   }
 }

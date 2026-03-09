@@ -1,0 +1,104 @@
+---
+title: "Country Intelligence"
+description: "Get a comprehensive intelligence summary for a specific country."
+---
+
+# Country Intelligence
+
+<Endpoint method="GET" path="/v1/geo/{countryCode}" />
+
+Returns a comprehensive intelligence summary for a specific country, including recent signals, category breakdown, sentiment distribution, and an AI-generated briefing. This endpoint gives you a complete picture of the intelligence landscape for any country Khabri is tracking.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "countryCode", type: "string", required: true, default: "-", description: "ISO 3166-1 alpha-2 country code (e.g., `US`, `IN`, `DE`). Path parameter." },
+  { name: "hours", type: "integer", required: false, default: "24", description: "Time window in hours. Min 1, max 72." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/geo/IN" params="hours=24" />
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `country` | object | Country info with `code` and `name`. |
+| `signalCount` | integer | Total signals for this country in the time window. |
+| `signals` | array | Recent signals associated with this country. |
+| `categories` | object | Signal counts broken down by category. |
+| `sentimentBreakdown` | object | Signal counts broken down by sentiment. |
+| `briefing` | string or null | AI-generated intelligence summary for this country. |
+
+## Response
+
+<ResponseExample status={200} description="Country intelligence with AI briefing">
+
+```json
+{
+  "data": {
+    "country": {
+      "code": "IN",
+      "name": "India"
+    },
+    "signalCount": 145,
+    "signals": [
+      {
+        "id": "sig_x9k2m",
+        "title": "India Central Bank Holds Rates Steady Amid Inflation Concerns",
+        "url": "https://example.com/rbi-rates",
+        "source": "Reuters",
+        "category": "Economy",
+        "sentiment": "NEUTRAL",
+        "sentimentScore": 0.10,
+        "publishedAt": "2026-03-06T08:00:00Z",
+        "createdAt": "2026-03-06T08:15:00Z"
+      },
+      {
+        "id": "sig_m3j8w",
+        "title": "Indian Tech Startups Attract Record Q1 Funding",
+        "url": "https://example.com/india-startups",
+        "source": "TechCrunch",
+        "category": "Technology",
+        "sentiment": "POSITIVE",
+        "sentimentScore": 0.81,
+        "publishedAt": "2026-03-05T20:00:00Z",
+        "createdAt": "2026-03-05T20:10:00Z"
+      }
+    ],
+    "categories": {
+      "Economy": 45,
+      "Technology": 38,
+      "Politics": 32,
+      "Security": 18,
+      "Environment": 12
+    },
+    "sentimentBreakdown": {
+      "POSITIVE": 42,
+      "NEGATIVE": 28,
+      "NEUTRAL": 55,
+      "MIXED": 20
+    },
+    "briefing": "India's intelligence landscape is dominated by economic signals, with the RBI holding rates steady. The technology sector shows strong momentum with record startup funding in Q1. Political activity remains elevated ahead of state elections."
+  },
+  "meta": {
+    "hours": 24
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>

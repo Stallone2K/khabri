@@ -5,6 +5,7 @@ import { verifyCronSecret } from "@/lib/api-auth";
 import { gemini } from "@/lib/gemini";
 import { buildTrendEnginePrompt } from "@/lib/prompts";
 import { enrichSignals } from "@/lib/ingestion/signal-enricher";
+import { emitEvent } from "@/lib/webhook-events";
 
 // ---------------------------------------------------------------------------
 // RSS PARSER — configured with Google Trends custom fields + timeout
@@ -303,6 +304,27 @@ ${signalText}`;
           userId,
         })),
       });
+
+      // Emit webhook events for new trends
+      emitEvent("trend.new", {
+        count: rankedTrends.length,
+        topTrends: rankedTrends.slice(0, 5).map((t: any) => ({
+          topic: t.topic,
+          score: t.score,
+          category: t.category,
+        })),
+      }, userId);
+
+      // Emit spike events for high-scoring trends
+      const spikes = rankedTrends.filter((t: any) => (t.score || 0) >= 90);
+      for (const spike of spikes) {
+        emitEvent("trend.spike", {
+          topic: spike.topic,
+          score: spike.score,
+          category: spike.category,
+          reason: spike.reason,
+        }, userId);
+      }
     }
 
     // =========================================================================

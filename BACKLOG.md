@@ -173,12 +173,12 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 - [x] **TypeScript Build Check** — `npx tsc --noEmit` passes, `next build` completes without errors
 - [x] **Remove Debug Logs** — Stripped `console.log("[NarrativeTree]...")` debug statements from client components. Server-side logs kept for production monitoring
 - [x] **Environment Variables Audit** — 7 required env vars: `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `GEMINI_API_KEY`, `CRON_SECRET`
-- [ ] **Google OAuth Redirect URIs** — Add production domain to Google Cloud Console: `https://<domain>/api/auth/callback/google`
+- [x] **Google OAuth Redirect URIs** — Add production domain to Google Cloud Console: `https://<domain>/api/auth/callback/google`
 - [x] **Prisma Generate in Build** — Already in `package.json` build script: `prisma generate && next build`
 
 #### 5B. Vercel Deployment
 
-- [ ] **Install Vercel CLI** — `npm i -g vercel`
+- [x] **Install Vercel CLI** — `npm i -g vercel`
 - [ ] **Link Project** — `vercel link` to create/connect Vercel project
 - [ ] **Set Environment Variables** — Add all env vars to Vercel project settings (Dashboard → Settings → Environment Variables). Set `NEXTAUTH_URL` to production URL
 - [ ] **Connect Neon DB** — Verify `DATABASE_URL` points to production Neon instance (already using Neon pooler). Consider separate preview/production DB if needed
@@ -212,35 +212,40 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 
 #### 6A. API Key Authentication & Rate Limiting
 
-- [ ] **Schema: ApiKey Model** — `ApiKey` model (id, userId, name, key (hashed), prefix (first 8 chars for display), scopes[], rateLimit, requestCount, lastUsedAt, expiresAt, isActive, createdAt). `@@index([key])` for fast lookup
-- [ ] **API Key Management** — `POST /api/keys` (create key, return raw key once), `GET /api/keys` (list user's keys with prefix only), `DELETE /api/keys/[id]` (revoke key), `PATCH /api/keys/[id]` (update name/scopes/rate limit)
-- [ ] **API Auth Middleware** — `src/lib/api-middleware.ts`: validates `Authorization: Bearer khabri_...` header, checks rate limits (sliding window), tracks usage, returns standardized errors (401/403/429)
-- [ ] **Rate Limiting** — Per-key sliding window (default: 100 req/min free, 1000 req/min pro). `429 Too Many Requests` with `Retry-After` header
-- [ ] **Usage Tracking** — `ApiUsageLog` model (keyId, endpoint, method, statusCode, responseTimeMs, createdAt). Daily aggregation cron for dashboard stats
+> **Status: COMPLETE**
 
-#### 6B. Public Intelligence API
+- [x] **Schema: ApiKey Model** — `ApiKey` model (id, userId, name, key (SHA-256 hashed), prefix (first 8 chars for display), scopes[], rateLimit, requestCount, lastUsedAt, expiresAt, isActive, createdAt/updatedAt). `@@index([key])` + `@@index([userId])` for fast lookup. Also added `ApiUsageLog` (per-request) and `ApiUsageDailyStat` (daily aggregation) models
+- [x] **API Key Management** — `POST /api/keys` (create key, return raw key once, max 10 per user), `GET /api/keys` (list user's keys with prefix only), `DELETE /api/keys/[id]` (soft-revoke via isActive=false), `PATCH /api/keys/[id]` (update name/scopes/rate limit)
+- [x] **API Key Utilities** — `src/lib/api-keys.ts`: `generateApiKey()` produces `khabri_<32hex>` format keys, `hashApiKey()` SHA-256, `validateScopes()` against 6 valid scopes (trends, signals, anomalies, narratives, geo, analytics)
+- [x] **API Auth Middleware** — `src/lib/api-middleware.ts`: `authenticateApiKey()` validates `Authorization: Bearer khabri_...` header, checks active/expired/scope/rate-limit, returns standardized errors (401/403/429). `logUsage()` fire-and-forget per-request logging. `addRateLimitHeaders()` adds X-RateLimit-* headers
+- [x] **Dual-Mode Auth** — `authenticateRequest()` in `src/lib/api-auth.ts`: tries API key auth if Bearer header present, otherwise falls back to session auth. No session fallback when API key is explicitly provided but invalid
+- [x] **Rate Limiting** — In-memory sliding window via `src/lib/rate-limiter.ts` (Map-based, safe for single-VM PM2). Default 100 req/min, configurable per key (1-10000). `429 Too Many Requests` with `Retry-After` and `X-RateLimit-*` headers. DB sync of requestCount every 10 requests
+- [x] **Usage Tracking** — `ApiUsageLog` records every API key request (endpoint, method, statusCode, responseTimeMs). `POST /api/cron/usage-aggregate` (daily 01:00 UTC) aggregates into `ApiUsageDailyStat` and deletes raw logs >30 days
+- [x] **Route Retrofit** — 8 read-only routes upgraded to dual auth: `trends/list`, `trends/ticker`, `trends/graph`, `intelligence/anomalies`, `intelligence/trending`, `dashboard/stats`, `geo/search`, `articles`. Mutation routes remain session-only
 
-- [ ] **Trends API** — `GET /api/v1/trends` (paginated, filterable by category/region/score), `GET /api/v1/trends/top` (top N trending topics), `GET /api/v1/trends/[id]` (single trend with full context)
-- [ ] **Signals API** — `GET /api/v1/signals` (raw signals with entity/keyword/location enrichment), `GET /api/v1/signals/search` (full-text + entity + location search), `GET /api/v1/signals/[id]` (single signal with enrichment data)
-- [ ] **Anomalies API** — `GET /api/v1/anomalies` (active anomaly spikes with severity/type filters), `GET /api/v1/anomalies/trending` (top spiking items with sparkline data)
-- [ ] **Narratives API** — `GET /api/v1/narratives` (list all tracked narratives), `GET /api/v1/narratives/[id]` (full narrative tree with events/stakeholders/arc), `GET /api/v1/narratives/[id]/timeline` (arc data for visualization), `GET /api/v1/narratives/[id]/stakeholders` (key entities involved)
-- [ ] **Geo Intelligence API** — `GET /api/v1/geo/search` (location search with AI briefing), `GET /api/v1/geo/hotspots` (regions with highest signal activity), `GET /api/v1/geo/[countryCode]` (country-level intelligence summary)
-- [ ] **Analytics API** — `GET /api/v1/analytics/volume` (signal volume over time), `GET /api/v1/analytics/categories` (category distribution), `GET /api/v1/analytics/sentiment` (global sentiment trends)
-- [ ] **Standardized Response Format** — All endpoints return `{ data, meta: { total, page, pageSize, rateLimit: { remaining, limit, reset } }, errors? }`
+#### 6B. Public Intelligence API ✅
 
-#### 6C. Webhooks & Streaming
+- [x] **Trends API** — `GET /api/v1/trends` (paginated, filterable by category/region/score/sort), `GET /api/v1/trends/top` (top N trending topics with momentum: change direction + volume), `GET /api/v1/trends/[id]` (single trend with full context including reason)
+- [x] **Signals API** — `GET /api/v1/signals` (raw signals with entity/keyword/location enrichment, filterable by category/sentiment/source/since/enriched), `GET /api/v1/signals/search` (multi-dimensional search: full-text q, entity name/type, location/country), `GET /api/v1/signals/[id]` (single signal with full enrichment data)
+- [x] **Anomalies API** — `GET /api/v1/anomalies` (active anomaly spikes with severity/type filters + severity summary counts), `GET /api/v1/anomalies/trending` (top spiking items with 24h sparkline data)
+- [x] **Narratives API** — `GET /api/v1/narratives` (list root narratives across user's projects with child/event/stakeholder counts), `GET /api/v1/narratives/[id]` (full narrative tree with events/stakeholders/arc, ownership verified), `GET /api/v1/narratives/[id]/timeline` (arc data points via computeNarrativeArc), `GET /api/v1/narratives/[id]/stakeholders` (aggregated across subtree via recursive CTE, sortable/filterable)
+- [x] **Geo Intelligence API** — `GET /api/v1/geo/search` (location search with hierarchy walk + AI briefing), `GET /api/v1/geo/hotspots` (top signal-dense countries with category/sentiment via SQL MODE()), `GET /api/v1/geo/[countryCode]` (country intelligence: signals + category/sentiment breakdown + AI briefing)
+- [x] **Analytics API** — `GET /api/v1/analytics/volume` (signal volume time-series, hourly/daily interval), `GET /api/v1/analytics/categories` (category distribution with percentages), `GET /api/v1/analytics/sentiment` (sentiment time-series with per-bucket and overall breakdown)
+- [x] **Standardized Response Format** — All v1 endpoints return `{ data, meta: { total?, page?, pageSize?, hasMore?, rateLimit: { limit, remaining, reset } } }`. Errors: `{ error: { code, message }, meta? }`. Shared utilities in `src/lib/api-v1.ts`: `authenticateV1()` (API-key only, no session), `v1Success()`, `v1Error()`, `logV1Usage()`, `parsePagination()`
 
-- [ ] **Webhook Registration** — `POST /api/v1/webhooks` (register URL + event types), `GET /api/v1/webhooks` (list), `DELETE /api/v1/webhooks/[id]` (remove). Events: `trend.new`, `trend.spike`, `anomaly.detected`, `narrative.event`, `narrative.phase_change`
-- [ ] **Webhook Delivery** — Queue-based delivery with retry (3 attempts, exponential backoff), HMAC signature verification, delivery logs
-- [ ] **SSE Streaming** — `GET /api/v1/stream` (Server-Sent Events for real-time trend/anomaly updates). Filter by category/region/severity
+#### 6C. Webhooks & Streaming ✅
 
-#### 6D. Interactive API Documentation
+- [x] **Webhook Registration** — `POST /api/v1/webhooks` (register URL + events, generates `whsec_` secret), `GET /api/v1/webhooks` (list), `GET /api/v1/webhooks/[id]` (details + last 20 deliveries), `DELETE /api/v1/webhooks/[id]` (soft-revoke). Events: `trend.new`, `trend.spike`, `anomaly.detected`, `narrative.event`, `narrative.phase_change`. Max 5 active webhooks per user. HTTPS-only URLs. New `webhooks` API scope
+- [x] **Webhook Delivery** — DB-backed delivery queue with inline fire-and-forget + retry cron (every 5 min). 3 attempts with exponential backoff (1m, 5m, 30m). HMAC-SHA256 signing via `X-Khabri-Signature` header. Delivery logs with status/statusCode/error tracking. 7-day retention with daily cleanup cron. Event emission integrated into ingest (`trend.new`, `trend.spike`), anomaly (`anomaly.detected`), and trend-monitor (`narrative.event`, `narrative.phase_change`) crons
+- [x] **SSE Streaming** — `GET /api/v1/stream` (Server-Sent Events). Filter by `?events=trend.new,anomaly.detected`. Validates API key scopes per event type. In-memory EventEmitter singleton for real-time broadcast. 30s heartbeat. User-scoped events (trends, narratives) + global events (anomalies). Auto-cleanup on client disconnect
 
-- [ ] **OpenAPI 3.1 Spec** — `src/lib/api-spec.ts`: full OpenAPI schema auto-generated from route definitions. Covers all v1 endpoints with request/response schemas, auth, examples
-- [ ] **API Docs Page** — `src/app/docs/page.tsx`: interactive Swagger UI or Scalar-powered docs page. Try-it-out with API key input, code examples (curl, Python, JavaScript, Go)
-- [ ] **Developer Portal Page** — `src/app/dashboard/developer/page.tsx`: API key management UI (create/revoke/view usage), usage charts (requests/day, top endpoints), quota display
-- [ ] **SDK Stubs** — Auto-generated TypeScript and Python client examples in docs. `npm install @khabri/sdk` placeholder structure
-- [ ] **Rate Limit & Error Reference** — Docs section covering: HTTP status codes, error response format, rate limit headers, authentication flow, scope permissions
+#### 6D. Interactive API Documentation ✅
+
+- [x] **OpenAPI 3.1 Spec** — `src/lib/api-spec.ts`: Complete OpenAPI 3.1 specification covering all 23 v1 endpoints. Organized by 8 tags (Trends, Signals, Anomalies, Narratives, Geo, Analytics, Webhooks, Stream). Includes ~20 reusable schemas, reusable parameters, auth scheme, and error responses
+- [x] **API Docs Page** — `src/app/docs/page.tsx`: Interactive Scalar-powered API reference at `/docs`. Dark mode (Kepler theme), try-it-out, auto-generated code examples (curl/JS/Python/Go), schema visualization, search. Publicly accessible (no auth required). Layout at `src/app/docs/layout.tsx`
+- [x] **Developer Portal Page** — `src/app/dashboard/developer/page.tsx`: Three-tab portal (Keys / Usage / Quick Start). **API Key Manager** (`src/components/dashboard/developer/api-key-manager.tsx`): create/list/revoke keys with scope toggles, rate limit config, one-time raw key display with copy button. **Usage Charts** (`src/components/dashboard/developer/usage-charts.tsx`): Recharts line chart for daily requests/errors, stat cards (total/error rate/avg response), top endpoints table. Fetches from new `GET /api/keys/usage?days=30` endpoint
+- [x] **SDK Stubs** — **Quick Start Guide** (`src/components/dashboard/developer/quick-start-guide.tsx`): Tabbed code examples (curl/JavaScript/Python) for 4 common operations: listing trends, searching signals, streaming events, registering webhooks. Copy button on each block. Link to full docs
+- [x] **Rate Limit & Error Reference** — Embedded in the OpenAPI spec's `info.description` as rich markdown: Authentication section (scopes table, Bearer format), Rate Limiting section (sliding window, headers, 429 behavior), Error Format section (status codes table, JSON structure), Pagination section, SSE section. Rendered by Scalar as the intro page
 
 ### Phase 7: Polish, Performance & Navigation
 
@@ -281,6 +286,7 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 | `POST /api/cron/market-data`        | Every 5 min                      | Financial market data                                                                        | 3     | TODO                         |
 | `POST /api/cron/prediction-markets` | Every 30 min                     | Polymarket data                                                                              | 3     | TODO                         |
 | `POST /api/cron/trend-monitor`      | Every 30 min (`:10/:40`)         | 5-phase pipeline: signal match → AI significance → stakeholders → sub-narratives → arc phase | 4     | LIVE                         |
+| `POST /api/cron/usage-aggregate`    | Daily 01:00 UTC                  | Aggregate API usage logs → daily stats, delete raw logs >30 days                             | 6     | LIVE                         |
 | `POST /api/cron/cleanup`            | Daily 03:00 UTC                  | Archive old data                                                                             | 7     | TODO                         |
 
 ---
@@ -312,3 +318,34 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 | GET                   | `/api/articles`                              | List articles from user sources                           | 0     |
 | GET/POST/DELETE/PATCH | `/api/sources`                               | Manage RSS sources                                        | 0     |
 | GET                   | `/api/sources/stats`                         | Source statistics with metadata extraction                | 0     |
+| POST                  | `/api/keys`                                  | Create API key (returns raw key once)                     | 6     |
+| GET                   | `/api/keys`                                  | List user's API keys (prefix only)                        | 6     |
+| DELETE                | `/api/keys/[id]`                             | Revoke API key                                            | 6     |
+| PATCH                 | `/api/keys/[id]`                             | Update API key name/scopes/rate limit                     | 6     |
+| POST                  | `/api/cron/usage-aggregate`                  | Daily API usage aggregation + log cleanup                 | 6     |
+| GET                   | `/api/v1/trends`                             | Paginated trends (category/region/score/sort filters)     | 6     |
+| GET                   | `/api/v1/trends/top`                         | Top N trending topics with momentum                       | 6     |
+| GET                   | `/api/v1/trends/[id]`                        | Single trend with full context                            | 6     |
+| GET                   | `/api/v1/signals`                            | Signals with enrichment (entity/keyword/location)         | 6     |
+| GET                   | `/api/v1/signals/search`                     | Multi-dimensional signal search                           | 6     |
+| GET                   | `/api/v1/signals/[id]`                       | Single signal with enrichment data                        | 6     |
+| GET                   | `/api/v1/anomalies`                          | Active anomalies with severity summary                    | 6     |
+| GET                   | `/api/v1/anomalies/trending`                 | Top anomalies with 24h sparklines                         | 6     |
+| GET                   | `/api/v1/narratives`                         | List root narratives across projects                      | 6     |
+| GET                   | `/api/v1/narratives/[id]`                    | Full narrative tree with events/stakeholders              | 6     |
+| GET                   | `/api/v1/narratives/[id]/timeline`           | Narrative arc data for visualization                      | 6     |
+| GET                   | `/api/v1/narratives/[id]/stakeholders`       | Narrative stakeholders (subtree aggregated)               | 6     |
+| GET                   | `/api/v1/geo/search`                         | Location search with AI briefing                          | 6     |
+| GET                   | `/api/v1/geo/hotspots`                       | Top signal-dense regions                                  | 6     |
+| GET                   | `/api/v1/geo/[countryCode]`                  | Country-level intelligence summary                        | 6     |
+| GET                   | `/api/v1/analytics/volume`                   | Signal volume time-series                                 | 6     |
+| GET                   | `/api/v1/analytics/categories`               | Category distribution                                    | 6     |
+| GET                   | `/api/v1/analytics/sentiment`                | Sentiment time-series + overall breakdown                 | 6     |
+| POST                  | `/api/v1/webhooks`                           | Register webhook (URL + events, returns secret once)      | 6     |
+| GET                   | `/api/v1/webhooks`                           | List user's webhooks                                      | 6     |
+| GET                   | `/api/v1/webhooks/[id]`                      | Webhook details + last 20 deliveries                      | 6     |
+| DELETE                | `/api/v1/webhooks/[id]`                      | Soft-revoke webhook                                       | 6     |
+| GET                   | `/api/v1/stream`                             | SSE streaming (real-time events via EventSource)          | 6     |
+| POST                  | `/api/cron/webhook-deliver`                  | Retry pending webhook deliveries (every 5 min)            | 6     |
+| POST                  | `/api/cron/webhook-cleanup`                  | Prune old deliveries + events (daily, 7-day retention)    | 6     |
+| GET                   | `/api/keys/usage`                            | API usage analytics (daily stats, top endpoints)          | 6     |

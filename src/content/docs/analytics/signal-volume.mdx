@@ -1,0 +1,74 @@
+---
+title: "Signal Volume"
+description: "Get signal volume as a time-series with configurable interval and lookback window."
+---
+
+# Signal Volume
+
+<Endpoint method="GET" path="/v1/analytics/volume" />
+
+Returns signal volume as a time-series, grouped by the specified interval. Each data point contains a timestamp and the count of signals ingested during that interval. The response also includes the total signal count for the entire window.
+
+Use this endpoint to visualize signal ingestion rates, detect quiet or busy periods, and identify sudden spikes in activity.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "hours", type: "integer", required: false, default: "24", description: "Lookback window in hours. Min 1, max 72." },
+  { name: "interval", type: "string", required: false, default: "hour", description: "Grouping interval. One of `hour` or `day`." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/analytics/volume" params="hours=24" />
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `interval` | string | The interval used for grouping (`hour` or `day`). |
+| `dataPoints` | array | Array of time-series data points, each with `timestamp` and `count`. |
+| `total` | integer | Total signal count across the entire window. |
+
+## Response
+
+<ResponseExample status={200} description="Signal volume time-series">
+
+```json
+{
+  "data": {
+    "interval": "hour",
+    "dataPoints": [
+      { "timestamp": "2026-03-05T10:00:00Z", "count": 42 },
+      { "timestamp": "2026-03-05T11:00:00Z", "count": 38 },
+      { "timestamp": "2026-03-05T12:00:00Z", "count": 55 },
+      { "timestamp": "2026-03-05T13:00:00Z", "count": 67 },
+      { "timestamp": "2026-03-05T14:00:00Z", "count": 51 },
+      { "timestamp": "2026-03-05T15:00:00Z", "count": 44 },
+      { "timestamp": "2026-03-05T16:00:00Z", "count": 73 },
+      { "timestamp": "2026-03-05T17:00:00Z", "count": 61 },
+      { "timestamp": "2026-03-05T18:00:00Z", "count": 49 },
+      { "timestamp": "2026-03-05T19:00:00Z", "count": 35 }
+    ],
+    "total": 515
+  },
+  "meta": {
+    "hours": 24
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>

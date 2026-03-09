@@ -1,0 +1,117 @@
+---
+title: "Rate Limiting"
+description: "Understand rate limits, headers, and best practices for the Khabri API."
+---
+
+# Rate Limiting
+
+Rate limits are enforced per API key using a sliding window of 1 minute. The default limit is **500 requests per minute**.
+
+## Rate Limit Headers
+
+Every API response includes rate limit information in the headers:
+
+| Header | Description | Example |
+|--------|-------------|---------|
+| `X-RateLimit-Limit` | Maximum requests per window | `500` |
+| `X-RateLimit-Remaining` | Remaining requests in current window | `487` |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets | `1709712060` |
+
+## Checking Your Rate Limit
+
+```bash
+curl -I "https://khabri.stallone.co.in/api/v1/trends" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+The `-I` flag returns only headers, so you can inspect rate limit status without consuming a full request.
+
+## Rate Limit Exceeded
+
+When you exceed the limit, you'll receive a `429 Too Many Requests` response:
+
+```json
+{
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Rate limit exceeded. Try again in 45 seconds."
+  }
+}
+```
+
+## Handling Rate Limits in Code
+
+### Python
+
+```python
+import requests
+import time
+
+def make_request(url, headers):
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 429:
+        reset_at = int(response.headers.get("X-RateLimit-Reset", 0))
+        wait = max(reset_at - time.time(), 1)
+        print(f"Rate limited. Waiting {wait:.0f}s...")
+        time.sleep(wait)
+        return make_request(url, headers)
+
+    return response
+```
+
+### JavaScript
+
+```javascript
+async function makeRequest(url, headers) {
+  const response = await fetch(url, { headers });
+
+  if (response.status === 429) {
+    const resetAt = Number(response.headers.get("X-RateLimit-Reset"));
+    const waitMs = Math.max(resetAt * 1000 - Date.now(), 1000);
+    console.log(`Rate limited. Waiting ${waitMs / 1000}s...`);
+    await new Promise(r => setTimeout(r, waitMs));
+    return makeRequest(url, headers);
+  }
+
+  return response;
+}
+```
+
+### Go
+
+```go
+func makeRequest(url string, apiKey string) (*http.Response, error) {
+    req, _ := http.NewRequest("GET", url, nil)
+    req.Header.Set("Authorization", "Bearer "+apiKey)
+
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return nil, err
+    }
+
+    if resp.StatusCode == 429 {
+        resetStr := resp.Header.Get("X-RateLimit-Reset")
+        resetAt, _ := strconv.ParseInt(resetStr, 10, 64)
+        wait := time.Until(time.Unix(resetAt, 0))
+        time.Sleep(wait)
+        return makeRequest(url, apiKey)
+    }
+
+    return resp, nil
+}
+```
+
+## Best Practices
+
+- **Cache responses** where possible to reduce API calls
+- **Use pagination** wisely — fetch only the data you need with appropriate `page_size`
+- **Implement exponential backoff** when receiving 429 responses
+- **Use webhooks** for real-time updates instead of polling endpoints
+- **Use the SSE stream** endpoint for live event data — one connection instead of repeated requests
+- **Batch your reads** — use list endpoints with filters rather than fetching individual resources
+- **Monitor `X-RateLimit-Remaining`** — slow down before hitting the limit rather than waiting for 429
+
+<Callout type="info">
+  Need a higher rate limit? Contact us through the platform to discuss enterprise plans.
+</Callout>

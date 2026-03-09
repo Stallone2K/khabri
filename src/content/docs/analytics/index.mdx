@@ -1,0 +1,40 @@
+---
+title: "Analytics"
+description: "Signal volume time-series, category distribution, and sentiment analysis."
+---
+
+# Analytics
+
+The Analytics API provides aggregate views of signal data across configurable time windows. Use these endpoints to build dashboards, monitor trends in signal volume, understand category distributions, and track sentiment shifts over time.
+
+## Core Concepts
+
+### Time Windows
+
+All analytics endpoints accept an `hours` parameter (1-72, default 24) that defines the lookback window. Data is computed in real time from the signals collected during that period.
+
+### Intervals
+
+The volume and sentiment endpoints support `interval` grouping -- either `hour` or `day`. Hourly intervals are the default and provide more granular time-series data. Daily intervals are useful for longer time windows (48-72 hours).
+
+### Categories and Sentiment
+
+Khabri enriches every signal with a category and sentiment classification. The analytics endpoints aggregate these classifications so you can see macro-level patterns without querying individual signals.
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/analytics/volume` | [Signal volume over time](/docs/analytics/signal-volume) |
+| GET | `/v1/analytics/categories` | [Category distribution](/docs/analytics/category-distribution) |
+| GET | `/v1/analytics/sentiment` | [Sentiment analysis](/docs/analytics/sentiment-analysis) |
+
+## Quick Start
+
+Get signal volume over the last 24 hours:
+
+<RequestExample method="GET" path="/v1/analytics/volume" params="hours=24" />
+
+## Authentication
+
+All analytics endpoints require a Bearer token with the `analytics` scope. See [Authentication](/docs/authentication) for details.

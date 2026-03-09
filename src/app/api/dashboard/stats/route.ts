@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authenticateRequest } from "@/lib/api-auth";
+import { logUsage, addRateLimitHeaders } from "@/lib/api-middleware";
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-
-  // Dev Mode Fallback
-  let userId = session?.user?.id;
-  if (!userId) {
-    const firstUser = await prisma.user.findFirst();
-    userId = firstUser?.id;
-  }
-
-  if (!userId)
+export async function GET(req: Request) {
+  const startTime = Date.now();
+  const auth = await authenticateRequest(req, "analytics");
+  if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = auth.userId;
 
   try {
     const now = new Date();
@@ -66,7 +61,7 @@ export async function GET() {
     // Floor of 1 to avoid division by zero errors visually
     const velocity = Math.max(1, Math.round(signalsCount / 24));
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       signalsProcessed: signalsCount,
       criticalTrends: criticalCount,
       lastUpdate: lastTrend?.createdAt || null,
@@ -75,8 +70,16 @@ export async function GET() {
       topSource: topSource[0]?.source || "N/A",
       trendVelocity: velocity,
     });
+    if (auth.authMode === "apikey" && auth.keyId) {
+      logUsage(auth.keyId, req, 200, Date.now() - startTime).catch(() => {});
+      addRateLimitHeaders(response, auth.rateLimit!, auth.remaining!, auth.resetMs!);
+    }
+    return response;
   } catch (error) {
     console.error("Stats API Error:", error);
+    if (auth.authMode === "apikey" && auth.keyId) {
+      logUsage(auth.keyId, req, 500, Date.now() - startTime).catch(() => {});
+    }
     return NextResponse.json({ error: "Stats failed" }, { status: 500 });
   }
 }

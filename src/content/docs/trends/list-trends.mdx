@@ -1,0 +1,94 @@
+---
+title: "List Trends"
+description: "Retrieve a paginated list of ranked trends with filtering by category, region, and minimum score."
+---
+
+# List Trends
+
+<Endpoint method="GET" path="/v1/trends" />
+
+Returns a paginated list of trends ranked by Khabri's scoring algorithm. Trends are ordered by rank by default, but you can sort by score or creation date instead. Use the filtering parameters to narrow results by category, region, or minimum score threshold.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "page", type: "integer", required: false, default: "1", description: "Page number (1-based)." },
+  { name: "page_size", type: "integer", required: false, default: "25", description: "Items per page. Min 1, max 100. Also accepts `limit`." },
+  { name: "category", type: "string", required: false, default: "-", description: "Filter by category (e.g., `Politics`, `Technology`)." },
+  { name: "region", type: "string", required: false, default: "-", description: "Filter by region. One of `DOMESTIC` or `INTERNATIONAL`." },
+  { name: "min_score", type: "integer", required: false, default: "-", description: "Only return trends with a score at or above this threshold." },
+  { name: "sort", type: "string", required: false, default: "rank", description: "Sort order. One of `rank`, `score`, or `created_at`." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/trends" params="page=1&page_size=5" />
+
+## Response
+
+<ResponseExample status={200} description="Paginated list of trends">
+
+```json
+{
+  "data": [
+    {
+      "id": "trd_a1b2c3d4",
+      "rank": 1,
+      "topic": "Central Bank Interest Rate Decision",
+      "score": 94,
+      "reason": "Surging mentions across 12 sources in the last 3 hours",
+      "category": "Economy",
+      "region": "DOMESTIC",
+      "originalUrl": "https://example.com/article/rate-decision",
+      "createdAt": "2026-03-06T08:12:00Z"
+    },
+    {
+      "id": "trd_e5f6g7h8",
+      "rank": 2,
+      "topic": "Semiconductor Export Controls",
+      "score": 87,
+      "reason": "Cross-border policy shift detected",
+      "category": "Technology",
+      "region": "INTERNATIONAL",
+      "originalUrl": null,
+      "createdAt": "2026-03-06T07:45:00Z"
+    }
+  ],
+  "meta": {
+    "total": 148,
+    "page": 1,
+    "pageSize": 25,
+    "hasMore": true
+  }
+}
+```
+
+</ResponseExample>
+
+## Error responses
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={500} description="Server error">
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "An unexpected error occurred"
+  }
+}
+```
+
+</ResponseExample>

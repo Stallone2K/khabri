@@ -1,0 +1,63 @@
+---
+title: "Narrative Timeline"
+description: "Get chronological timeline data and arc phase progression for a narrative."
+---
+
+# Narrative Timeline
+
+<Endpoint method="GET" path="/v1/narratives/{id}/timeline" />
+
+Returns the timeline data for a narrative, including the current arc phase and chronological data points. Each data point represents signal activity at a given timestamp, allowing you to visualize how the narrative has evolved over time.
+
+Use this endpoint to chart the intensity of a narrative and identify when it transitioned between arc phases (emergence, escalation, peak, resolution).
+
+## Parameters
+
+<ParamTable params={[
+  { name: "id", type: "string", required: true, default: "-", description: "The narrative node ID. Path parameter." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/narratives/nar_8f3k2m1/timeline" />
+
+## Response
+
+<ResponseExample status={200} description="Timeline with arc phase and chronological data points">
+
+```json
+{
+  "data": {
+    "nodeId": "nar_8f3k2m1",
+    "phase": "ESCALATION",
+    "dataPoints": [
+      { "timestamp": "2026-02-10T00:00:00Z", "value": 2 },
+      { "timestamp": "2026-02-11T00:00:00Z", "value": 3 },
+      { "timestamp": "2026-02-12T00:00:00Z", "value": 5 },
+      { "timestamp": "2026-02-13T00:00:00Z", "value": 4 },
+      { "timestamp": "2026-02-14T00:00:00Z", "value": 8 },
+      { "timestamp": "2026-02-15T00:00:00Z", "value": 12 },
+      { "timestamp": "2026-02-16T00:00:00Z", "value": 15 },
+      { "timestamp": "2026-02-17T00:00:00Z", "value": 11 },
+      { "timestamp": "2026-02-18T00:00:00Z", "value": 18 },
+      { "timestamp": "2026-02-19T00:00:00Z", "value": 22 }
+    ]
+  },
+  "meta": {}
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={404} description="Narrative not found">
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Narrative not found"
+  }
+}
+```
+
+</ResponseExample>

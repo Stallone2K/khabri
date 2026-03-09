@@ -1,0 +1,102 @@
+---
+title: "Sentiment Analysis"
+description: "Get sentiment distribution over time with overall breakdown."
+---
+
+# Sentiment Analysis
+
+<Endpoint method="GET" path="/v1/analytics/sentiment" />
+
+Returns sentiment data as a time-series with an overall summary. Each data point breaks down signal counts by sentiment class (positive, negative, neutral, mixed) and includes the average sentiment score for that interval. The `overall` object provides the aggregate totals across the entire window.
+
+Use this endpoint to track how sentiment evolves over time, detect sudden shifts toward negative or positive coverage, and filter by category for targeted sentiment monitoring.
+
+## Parameters
+
+<ParamTable params={[
+  { name: "hours", type: "integer", required: false, default: "24", description: "Lookback window in hours. Min 1, max 72." },
+  { name: "interval", type: "string", required: false, default: "hour", description: "Grouping interval. One of `hour` or `day`." },
+]} />
+
+## Request Example
+
+<RequestExample method="GET" path="/v1/analytics/sentiment" params="hours=24" />
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `interval` | string | The interval used for grouping (`hour` or `day`). |
+| `dataPoints` | array | Time-series data. Each point has `timestamp`, `positive`, `negative`, `neutral`, `mixed`, and `avgScore`. |
+| `overall` | object | Aggregate totals: `positive`, `negative`, `neutral`, `mixed`, and `avgScore` across the full window. |
+
+## Response
+
+<ResponseExample status={200} description="Sentiment time-series with overall breakdown">
+
+```json
+{
+  "data": {
+    "interval": "hour",
+    "dataPoints": [
+      {
+        "timestamp": "2026-03-05T10:00:00Z",
+        "positive": 12,
+        "negative": 8,
+        "neutral": 18,
+        "mixed": 4,
+        "avgScore": 0.15
+      },
+      {
+        "timestamp": "2026-03-05T11:00:00Z",
+        "positive": 9,
+        "negative": 11,
+        "neutral": 15,
+        "mixed": 3,
+        "avgScore": -0.05
+      },
+      {
+        "timestamp": "2026-03-05T12:00:00Z",
+        "positive": 18,
+        "negative": 6,
+        "neutral": 22,
+        "mixed": 9,
+        "avgScore": 0.28
+      },
+      {
+        "timestamp": "2026-03-05T13:00:00Z",
+        "positive": 14,
+        "negative": 15,
+        "neutral": 25,
+        "mixed": 13,
+        "avgScore": -0.02
+      }
+    ],
+    "overall": {
+      "positive": 53,
+      "negative": 40,
+      "neutral": 80,
+      "mixed": 29,
+      "avgScore": 0.09
+    }
+  },
+  "meta": {
+    "hours": 24
+  }
+}
+```
+
+</ResponseExample>
+
+<ResponseExample status={401} description="Missing or invalid API key">
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+</ResponseExample>
