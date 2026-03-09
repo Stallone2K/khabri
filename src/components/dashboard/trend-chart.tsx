@@ -155,7 +155,7 @@ export function TrendChart({ trigger = 0, selectedRank = null, onSelectRank, reg
 
 				{/* Legend: clickable trend names */}
 				{trendsMeta.length > 0 && (
-					<div className="flex flex-wrap gap-x-3 md:gap-x-4 gap-y-1 px-3 md:px-6 py-2 md:py-3 border-t">
+					<div className="flex flex-wrap justify-center gap-x-3 md:gap-x-4 gap-y-1 px-3 md:px-6 py-2 md:py-3 border-t">
 						{trendsMeta.slice(0, 10).map((t, i) => {
 							const isSelected = selectedRank === t.rank;
 							const hasSelection = selectedRank !== null;
