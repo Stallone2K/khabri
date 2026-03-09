@@ -131,7 +131,7 @@ export const SourcesManager = () => {
 								variant="ghost"
 								size="icon"
 								onClick={() => handleDeleteSource(source.id)}
-								className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+								className="shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
 							>
 								<MinusCircle className="h-4 w-4" />
 							</Button>

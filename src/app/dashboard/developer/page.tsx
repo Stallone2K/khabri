@@ -10,10 +10,10 @@ export default function DeveloperPage() {
   const managerRef = useRef<ApiKeyManagerHandle>(null);
 
   return (
-    <div className="flex flex-col gap-8 p-4 md:p-8 w-full max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">API Keys</h1>
-        <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-6 md:gap-8 p-4 md:p-8 w-full max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight">API Keys</h1>
+        <div className="flex items-center gap-2 sm:gap-3">
           <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
             <Link href="/docs">
               <ExternalLink className="mr-2 h-4 w-4" />
@@ -22,7 +22,7 @@ export default function DeveloperPage() {
           </Button>
           <Button size="sm" onClick={() => managerRef.current?.openCreate()}>
             <KeyRound className="mr-2 h-4 w-4" />
-            Create API Key
+            Create Key
           </Button>
         </div>
       </div>

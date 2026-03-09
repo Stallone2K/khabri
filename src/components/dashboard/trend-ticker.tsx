@@ -48,10 +48,10 @@ export function TrendTicker({ regionFilter = "ALL" }: TrendTickerProps) {
 
 	return (
 		// FIX 1: The outer container must be explicitly relative and w-full
-		<div className="w-full h-10 flex items-center relative overflow-hidden z-40">
+		<div className="w-full h-9 md:h-10 flex items-center relative overflow-hidden z-40">
 
-			{/* Label: Static width */}
-			<div className="bg-primary/10 text-primary px-4 h-full flex items-center justify-center text-xs font-bold uppercase tracking-wider border-r border-white/10 shrink-0 z-20 relative">
+			{/* Label */}
+			<div className="hidden sm:flex bg-primary/10 text-primary px-4 h-full items-center justify-center text-xs font-bold uppercase tracking-wider border-r border-white/10 shrink-0 z-20 relative">
 				Live Markets
 			</div>
 
@@ -68,14 +68,14 @@ export function TrendTicker({ regionFilter = "ALL" }: TrendTickerProps) {
 					className="h-full flex items-center overflow-hidden"
 				>
 					{criticalAnomalies.map((anomaly) => (
-						<div key={`anomaly-${anomaly.id}`} className="flex items-center space-x-2 px-6 border-r border-red-500/20 h-full bg-red-500/5">
+						<div key={`anomaly-${anomaly.id}`} className="flex items-center space-x-2 px-3 md:px-6 border-r border-red-500/20 h-full bg-red-500/5">
 							<span className="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Spike</span>
 							<span className="text-sm font-semibold text-red-400 whitespace-nowrap">{anomaly.label}</span>
 							<span className="text-xs font-mono font-bold text-red-500">z={anomaly.zScore.toFixed(1)}</span>
 						</div>
 					))}
 					{items.map((item) => (
-						<div key={item.id} className="flex items-center space-x-3 px-6 border-r border-white/5 h-full">
+						<div key={item.id} className="flex items-center space-x-2 md:space-x-3 px-3 md:px-6 border-r border-white/5 h-full">
 
 							<span className="text-xs font-mono text-muted-foreground">
 								#{item.rank}

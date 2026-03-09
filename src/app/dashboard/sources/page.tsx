@@ -3,8 +3,8 @@ import { SourcesManager } from "@/components/dashboard/sources-manager";
 
 export default function SourcesPage() {
 	return (
-		<div className="flex flex-col gap-8 p-4 md:p-8">
-			<h1 className="text-3xl font-bold tracking-tight">Manage Sources</h1>
+		<div className="flex flex-col gap-6 md:gap-8 p-4 md:p-8">
+			<h1 className="text-2xl md:text-3xl font-bold tracking-tight">Manage Sources</h1>
 			<Card>
 				<CardHeader>
 					<CardTitle>Your RSS Feeds</CardTitle>

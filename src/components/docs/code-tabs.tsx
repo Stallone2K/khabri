@@ -36,8 +36,8 @@ export function CodeTabsClient({ tabs }: CodeTabsClientProps) {
   return (
     <div className="my-4 rounded-lg border border-border overflow-hidden bg-[hsl(0,0%,6%)]">
       {/* Tab bar header */}
-      <div className="flex items-center justify-between border-b border-border bg-[hsl(0,0%,8%)] px-3 py-1.5">
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between border-b border-border bg-[hsl(0,0%,8%)] px-2 md:px-3 py-1.5 overflow-x-auto">
+        <div className="flex items-center gap-0.5 md:gap-1">
           {tabs.map((tab) => (
             <button
               key={tab.lang}
@@ -57,7 +57,7 @@ export function CodeTabsClient({ tabs }: CodeTabsClientProps) {
       <div className="group relative">
         <CopyButton code={active.code} />
         <div
-          className="overflow-x-auto p-4 text-sm [&_pre]:!bg-transparent [&_pre]:!m-0 [&_code]:!bg-transparent"
+          className="overflow-x-auto p-3 md:p-4 text-xs md:text-sm [&_pre]:!bg-transparent [&_pre]:!m-0 [&_code]:!bg-transparent"
           dangerouslySetInnerHTML={{ __html: active.html }}
         />
       </div>

@@ -204,8 +204,8 @@ export function NarrativeTreeView({ project }: NarrativeTreeViewProps) {
   return (
     <div className="flex flex-col h-full">
       {/* HEADER */}
-      <div className="h-14 shrink-0 flex items-center justify-between px-6 border-b bg-background sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+      <div className="h-14 shrink-0 flex items-center justify-between px-3 md:px-6 border-b bg-background sticky top-0 z-10">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <Button
             variant="ghost"
             size="icon"
@@ -263,9 +263,9 @@ export function NarrativeTreeView({ project }: NarrativeTreeViewProps) {
             {project.status}
           </Badge>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
           {tree?.updatedAt && (
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
               Last Updated: {new Date(tree.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}{" "}
               {new Date(tree.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
             </span>
@@ -305,7 +305,7 @@ export function NarrativeTreeView({ project }: NarrativeTreeViewProps) {
       </div>
 
       {/* CONTENT */}
-      <div className="flex-1 overflow-y-auto p-6 max-w-3xl mx-auto w-full scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 overflow-y-auto p-3 md:p-6 max-w-3xl mx-auto w-full scrollbar-hide" style={{ scrollbarWidth: "none" }}>
         {loading || discovering ? (
           /* SKELETON STATE */
           <div className="space-y-4 animate-pulse">
@@ -342,7 +342,7 @@ export function NarrativeTreeView({ project }: NarrativeTreeViewProps) {
           <div className="space-y-1">
             {/* ADD FORM (inline) */}
             {showAddForm && (
-              <div className="flex items-center gap-2 mb-4 pl-[88px]">
+              <div className="flex items-center gap-2 mb-4 pl-4 md:pl-[88px]">
                 <Input
                   placeholder="New narrative title..."
                   value={addTitle}
@@ -399,7 +399,7 @@ export function NarrativeTreeView({ project }: NarrativeTreeViewProps) {
                 ))}
               </div>
             ) : (
-              <div className="pl-[88px] ml-3 border-l border-muted py-3">
+              <div className="pl-4 md:pl-[88px] ml-3 border-l border-muted py-3">
                 <p className="text-sm text-muted-foreground pl-4">
                   No sub-narratives yet. Click &quot;Discover&quot; or &quot;Add&quot;.
                 </p>
@@ -422,7 +422,7 @@ function RootNodeRow({ node }: { node: NarrativeNodeData }) {
   return (
     <div>
       <div className="flex items-baseline gap-4 py-3 group">
-        <span className="text-[11px] text-muted-foreground w-[72px] shrink-0 text-right tabular-nums">
+        <span className="text-[11px] text-muted-foreground w-[56px] md:w-[72px] shrink-0 text-right tabular-nums">
           {formatDate(node.createdAt)}
         </span>
         <div className="flex items-center gap-2 min-w-0">
@@ -436,7 +436,7 @@ function RootNodeRow({ node }: { node: NarrativeNodeData }) {
             <button
               onClick={() => setShowInfo(!showInfo)}
               title="Get Info"
-              className={`ml-1 rounded-full p-1 transition-colors ${showInfo ? "text-primary bg-primary/10" : "text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-muted"}`}
+              className={`ml-1 rounded-full p-1 transition-colors ${showInfo ? "text-primary bg-primary/10" : "text-muted-foreground/50 md:opacity-0 md:group-hover:opacity-100 hover:text-foreground hover:bg-muted"}`}
             >
               <Info className="h-4 w-4" />
             </button>
@@ -447,7 +447,7 @@ function RootNodeRow({ node }: { node: NarrativeNodeData }) {
         </div>
       </div>
       {showInfo && (
-        <div className="ml-[92px] pl-4 pb-2 text-xs text-muted-foreground leading-relaxed max-w-lg">
+        <div className="ml-4 md:ml-[92px] pl-4 pb-2 text-xs text-muted-foreground leading-relaxed max-w-lg">
           {node.summary && titleCase(cleanSummary(node.summary))}
           {node.keywords.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1.5">
@@ -548,7 +548,7 @@ function NarrativeRow({
     <div className="group">
       <div className={`flex items-baseline gap-4 ${rowPad}`}>
         {/* DATE */}
-        <span className={`${dateSize} text-muted-foreground w-[72px] shrink-0 text-right tabular-nums`}>
+        <span className={`${dateSize} text-muted-foreground w-[56px] md:w-[72px] shrink-0 text-right tabular-nums`}>
           {formatDate(node.createdAt)}
         </span>
 
@@ -632,7 +632,7 @@ function NarrativeRow({
                 <button
                   onClick={() => setShowInfo(!showInfo)}
                   title="Get Info"
-                  className={`rounded-full p-1 transition-colors ${showInfo ? "text-primary bg-primary/10" : "text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-muted"}`}
+                  className={`rounded-full p-1 transition-colors ${showInfo ? "text-primary bg-primary/10" : "text-muted-foreground/50 md:opacity-0 md:group-hover:opacity-100 hover:text-foreground hover:bg-muted"}`}
                 >
                   <Info className="h-4 w-4" />
                 </button>
@@ -643,7 +643,7 @@ function NarrativeRow({
               )}
 
               {/* ACTIONS (show on hover) */}
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center shrink-0 ml-auto">
+              <div className="md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center shrink-0 ml-auto">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -695,7 +695,7 @@ function NarrativeRow({
 
       {/* INFO PANEL */}
       {showInfo && (
-        <div className="ml-[104px] pb-2 text-xs text-muted-foreground leading-relaxed max-w-lg">
+        <div className="ml-4 md:ml-[104px] pb-2 text-xs text-muted-foreground leading-relaxed max-w-lg">
           {node.summary && titleCase(cleanSummary(node.summary))}
           {node.keywords.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1.5">
@@ -718,7 +718,7 @@ function NarrativeRow({
 
       {/* EVENTS (expanded) */}
       {expanded && node.events.length > 0 && (
-        <div className="ml-[88px] pl-7 border-l border-muted/50 ml-[92px] space-y-1 pb-1">
+        <div className="ml-4 md:ml-[92px] pl-4 md:pl-7 border-l border-muted/50 space-y-1 pb-1">
           {node.events.map((event) => (
             <div key={event.id} className="flex items-baseline gap-3 py-0.5">
               <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
@@ -743,14 +743,14 @@ function NarrativeRow({
 
       {/* TIMELINE */}
       {showTimeline && (
-        <div className="ml-[104px] pb-2 max-w-lg">
+        <div className="ml-4 md:ml-[104px] pb-2 max-w-lg">
           <NarrativeTimeline projectId={projectId} nodeId={node.id} />
         </div>
       )}
 
       {/* ADD SUB-NARRATIVE (inline) */}
       {addingChild && (
-        <div className="flex items-center gap-2 ml-[104px] py-1.5">
+        <div className="flex items-center gap-2 ml-4 md:ml-[104px] py-1.5">
           <Input
             placeholder="Sub-narrative title..."
             value={childTitle}
@@ -776,7 +776,7 @@ function NarrativeRow({
 
       {/* Recursive children */}
       {node.children.length > 0 && (
-        <div className="ml-[96px] pl-5 border-l border-muted/60">
+        <div className="ml-4 md:ml-[96px] pl-3 md:pl-5 border-l border-muted/60">
           {node.children.map((child, i) => (
             <NarrativeRow
               key={child.id}

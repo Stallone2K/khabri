@@ -233,11 +233,11 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 
 	return (
 		<Card className="col-span-1 shadow-sm">
-			<CardHeader className="flex flex-row items-center justify-between pb-4">
-				<CardTitle className="text-3xl font-extrabold">Trends</CardTitle>
+			<CardHeader className="flex flex-row items-center justify-between gap-3 pb-4 px-4 md:px-6">
+				<CardTitle className="text-xl md:text-3xl font-extrabold">Trends</CardTitle>
 				<div className="flex items-center gap-2">
 					<Select value={regionFilter} onValueChange={(v) => onRegionChange?.(v)}>
-						<SelectTrigger className="w-[180px] h-8 text-xs">
+						<SelectTrigger className="h-8 text-xs w-auto min-w-0">
 							<SelectValue placeholder="Region" />
 						</SelectTrigger>
 						<SelectContent>
@@ -250,7 +250,7 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 							<SelectItem value="DOMESTIC" disabled={!countryName}>
 								<span className="flex items-center gap-2">
 									<Antenna className="h-3.5 w-3.5" />
-									{countryName ? `Domestic (${countryName})` : "Domestic (detecting...)"}
+									{countryName ? `Domestic (${countryName})` : "Domestic"}
 								</span>
 							</SelectItem>
 							<SelectItem value="INTERNATIONAL">
@@ -266,7 +266,7 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 						size="icon"
 						onClick={runPipeline}
 						disabled={refreshing}
-						className="h-8 w-8"
+						className="h-8 w-8 shrink-0"
 					>
 						{refreshing ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
@@ -291,25 +291,25 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 					</div>
 				) : (
 					<>
-						<div className="px-4">
+						<div className="px-2 md:px-4 overflow-x-auto">
 					<Table>
 							<TableHeader>
 								<TableRow>
-									<TableHead className="w-[50px] text-center">Graph</TableHead>
-									<TableHead className="w-[60px] text-center cursor-pointer select-none" onClick={() => toggleSort("rank")}>
+									<TableHead className="w-[40px] md:w-[50px] text-center hidden sm:table-cell">Graph</TableHead>
+									<TableHead className="w-[50px] md:w-[60px] text-center cursor-pointer select-none" onClick={() => toggleSort("rank")}>
 										<span className="inline-flex items-center justify-center">Rank <SortIcon col="rank" /></span>
 									</TableHead>
-									<TableHead className="w-[80px] text-center cursor-pointer select-none" onClick={() => toggleSort("score")}>
+									<TableHead className="w-[60px] md:w-[80px] text-center cursor-pointer select-none" onClick={() => toggleSort("score")}>
 										<span className="inline-flex items-center justify-center">Score <SortIcon col="score" /></span>
 									</TableHead>
-									<TableHead className="min-w-[250px]">Topic</TableHead>
-									<TableHead className="w-[140px] cursor-pointer select-none" onClick={() => toggleSort("category")}>
+									<TableHead className="min-w-[150px] md:min-w-[250px]">Topic</TableHead>
+									<TableHead className="w-[140px] cursor-pointer select-none hidden md:table-cell" onClick={() => toggleSort("category")}>
 										<span className="inline-flex items-center">Category <SortIcon col="category" /></span>
 									</TableHead>
-									<TableHead className="w-[140px] text-right cursor-pointer select-none" onClick={() => toggleSort("createdAt")}>
+									<TableHead className="w-[140px] text-right cursor-pointer select-none hidden lg:table-cell" onClick={() => toggleSort("createdAt")}>
 										<span className="inline-flex items-center justify-end w-full">Detected <SortIcon col="createdAt" /></span>
 									</TableHead>
-									<TableHead className="w-[50px]"></TableHead>
+									<TableHead className="w-[40px] md:w-[50px]"></TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
@@ -323,7 +323,7 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 										}`}
 										onClick={() => onSelectRank?.(selectedRank === trend.rank ? null : trend.rank)}
 									>
-											<TableCell className="text-center">
+											<TableCell className="text-center hidden sm:table-cell">
 												<div
 													className="h-2 w-2 rounded-full mx-auto shadow-sm border border-black/10"
 													style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
@@ -351,9 +351,9 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 												</Badge>
 											</TableCell>
 
-											<TableCell className="font-medium text-sm">
+											<TableCell className="font-medium text-xs md:text-sm">
 												<div className="flex items-center gap-2">
-													{trend.topic}
+													<span className="line-clamp-2 md:line-clamp-1">{trend.topic}</span>
 													{(() => {
 														const spike = getTopicSpike(trend.topic, activeSpikes);
 														if (!spike) return null;
@@ -390,7 +390,7 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 												</div>
 											</TableCell>
 
-											<TableCell>
+											<TableCell className="hidden md:table-cell">
 												<Badge
 													variant="outline"
 													className={`
@@ -402,14 +402,14 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 												</Badge>
 											</TableCell>
 
-											<TableCell className="text-right text-muted-foreground text-xs font-mono">
+											<TableCell className="text-right text-muted-foreground text-xs font-mono hidden lg:table-cell">
 												{formatDetectedTime(trend.createdAt)}
 											</TableCell>
 
 											<TableCell>
 												<DropdownMenu>
 													<DropdownMenuTrigger asChild>
-														<Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+														<Button variant="ghost" className="h-8 w-8 p-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
 															<span className="sr-only">Open menu</span>
 															<MoreHorizontal className="h-4 w-4" />
 														</Button>
@@ -451,7 +451,7 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 
 						{/* PAGINATION */}
 						{pagination.totalPages > 1 && (
-							<div className="flex items-center justify-between px-6 py-4 border-t">
+							<div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 md:px-6 py-3 md:py-4 border-t">
 								<p className="text-xs text-muted-foreground">
 									{pagination.totalCount} trends &middot; Page {pagination.page} of {pagination.totalPages}
 								</p>

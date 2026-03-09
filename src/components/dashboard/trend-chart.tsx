@@ -97,12 +97,12 @@ export function TrendChart({ trigger = 0, selectedRank = null, onSelectRank, reg
 
 	return (
 		<Card className="col-span-1 md:col-span-2 lg:col-span-5 shadow-sm border-none">
-			<CardHeader className="pb-2 flex flex-row items-start justify-between">
+			<CardHeader className="pb-2 flex flex-row items-start justify-between gap-2">
 				<div className="space-y-1">
-					<CardTitle className="text-lg">Narrative Activity</CardTitle>
+					<CardTitle className="text-base md:text-lg">Narrative Activity</CardTitle>
 				</div>
 				<Select value={timeRange} onValueChange={setTimeRange}>
-					<SelectTrigger className="w-[140px] h-8 text-xs">
+					<SelectTrigger className="w-[120px] md:w-[140px] h-8 text-xs">
 						<SelectValue placeholder="Time Range" />
 					</SelectTrigger>
 					<SelectContent>
@@ -115,14 +115,14 @@ export function TrendChart({ trigger = 0, selectedRank = null, onSelectRank, reg
 			</CardHeader>
 
 			<CardContent className="pl-0 pb-0">
-				<div className="h-[280px] w-full relative">
+				<div className="h-[200px] md:h-[280px] w-full relative">
 					{loading && (
 						<div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
 							<Loader2 className="h-6 w-6 animate-spin text-primary" />
 						</div>
 					)}
 					<ResponsiveContainer width="100%" height="100%">
-						<LineChart data={data} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+						<LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 10 }}>
 							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
 							<XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#aaa' }} minTickGap={30} dy={10} />
 							<YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#aaa' }} width={30} />
@@ -155,7 +155,7 @@ export function TrendChart({ trigger = 0, selectedRank = null, onSelectRank, reg
 
 				{/* Legend: clickable trend names */}
 				{trendsMeta.length > 0 && (
-					<div className="flex flex-wrap gap-x-4 gap-y-1 px-6 py-3 border-t">
+					<div className="flex flex-wrap gap-x-3 md:gap-x-4 gap-y-1 px-3 md:px-6 py-2 md:py-3 border-t">
 						{trendsMeta.slice(0, 10).map((t, i) => {
 							const isSelected = selectedRank === t.rank;
 							const hasSelection = selectedRank !== null;
@@ -171,7 +171,7 @@ export function TrendChart({ trigger = 0, selectedRank = null, onSelectRank, reg
 										className="h-2 w-2 rounded-full shrink-0"
 										style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
 									/>
-									<span className="truncate max-w-[140px]">
+									<span className="truncate max-w-[100px] md:max-w-[140px]">
 										#{t.rank} {t.topic}
 									</span>
 								</button>

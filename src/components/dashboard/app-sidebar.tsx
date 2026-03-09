@@ -88,9 +88,10 @@ const getDomainName = (url: string) => {
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 	collapsed?: boolean
 	onToggleCollapse?: () => void
+	onNavigate?: () => void
 }
 
-export function AppSidebar({ className, collapsed, onToggleCollapse, ...props }: AppSidebarProps) {
+export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate, ...props }: AppSidebarProps) {
 	const { data: session } = useSession()
 	const user = session?.user
 	const router = useRouter()
@@ -267,13 +268,13 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, ...props }:
 				{/* NAVIGATION */}
 				<div className="space-y-1 mb-8">
 					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
-						<Link href="/dashboard">
+						<Link href="/dashboard" onClick={onNavigate}>
 							<LayoutDashboard className="mr-3 h-4 w-4" />
 							<span className="text-sm font-medium">Overview</span>
 						</Link>
 					</Button>
 					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
-						<Link href="/dashboard/sources">
+						<Link href="/dashboard/sources" onClick={onNavigate}>
 							<Megaphone className="mr-3 h-4 w-4" />
 							<span className="text-sm font-medium">Sources</span>
 						</Link>
@@ -318,7 +319,7 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, ...props }:
 									return (
 										<div key={project.id} className="group/item relative flex items-center">
 											<Button variant="ghost" asChild className="w-full justify-start h-8 text-muted-foreground hover:text-foreground pl-4 pr-8">
-												<Link href={`/dashboard/project/${project.id}`}>
+												<Link href={`/dashboard/project/${project.id}`} onClick={onNavigate}>
 													<TrendingUp className="h-3 w-3 mr-2 text-muted-foreground" />
 													<span className="text-xs truncate max-w-[140px]" title={project.title}>
 														{project.title}
@@ -389,7 +390,7 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, ...props }:
 												{items.map(source => (
 													<div key={source.id} className="group/item relative flex items-center">
 														<Button variant="ghost" asChild className="w-full justify-start h-8 text-muted-foreground hover:text-foreground pl-6 pr-8">
-															<Link href={`/dashboard/feeds/${source.id}`} className="flex justify-between w-full">
+															<Link href={`/dashboard/feeds/${source.id}`} onClick={onNavigate} className="flex justify-between w-full">
 																<span className="text-[11px] truncate max-w-[110px]" title={source.name}>{source.name}</span>
 																{source.unreadCount > 0 && <span className="text-[9px] text-muted-foreground font-medium">{source.unreadCount}</span>}
 															</Link>
@@ -408,19 +409,19 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, ...props }:
 				{/* USAGE & MARKET */}
 				<div className="space-y-1 mb-8">
 					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
-						<Link href="/dashboard/usage">
+						<Link href="/dashboard/usage" onClick={onNavigate}>
 							<ChartArea className="mr-3 h-4 w-4" />
 							<span className="text-sm font-medium">Usage</span>
 						</Link>
 					</Button>
 					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
-						<Link href="/dashboard/market">
+						<Link href="/dashboard/market" onClick={onNavigate}>
 							<TrendingUp className="mr-3 h-4 w-4" />
 							<span className="text-sm font-medium">Market</span>
 						</Link>
 					</Button>
 					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
-						<Link href="/dashboard/developer">
+						<Link href="/dashboard/developer" onClick={onNavigate}>
 							<KeyRound className="mr-3 h-4 w-4" />
 							<span className="text-sm font-medium">API & Docs</span>
 						</Link>
@@ -432,7 +433,7 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, ...props }:
 			<SidebarFooter className="border-t p-4 bg-background z-10">
 				{/* Settings Button */}
 				<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9 mb-2 text-muted-foreground hover:text-foreground">
-					<Link href="/dashboard/settings">
+					<Link href="/dashboard/settings" onClick={onNavigate}>
 						<Settings className="mr-3 h-4 w-4" />
 						<span className="text-sm font-medium">Settings</span>
 					</Link>
