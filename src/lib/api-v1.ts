@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import {
   authenticateApiKey,
   logUsage,
-  addRateLimitHeaders,
   type ApiAuthResult,
   type ApiAuthError,
 } from "@/lib/api-middleware";
@@ -50,13 +49,7 @@ export function v1Success<T>(
   data: T,
   pagination?: PaginationInfo,
 ): NextResponse {
-  const rateLimitMeta = {
-    limit: auth.rateLimit,
-    remaining: auth.remaining,
-    reset: Math.ceil(auth.resetMs / 1000),
-  };
-
-  const meta: Record<string, unknown> = { rateLimit: rateLimitMeta };
+  const meta: Record<string, unknown> = {};
   if (pagination) {
     meta.total = pagination.total;
     meta.page = pagination.page;
@@ -65,7 +58,6 @@ export function v1Success<T>(
   }
 
   const response = NextResponse.json({ data, meta });
-  addRateLimitHeaders(response, auth.rateLimit, auth.remaining, auth.resetMs);
   return response;
 }
 
@@ -73,18 +65,9 @@ export function v1Error(
   code: string,
   message: string,
   status: number,
-  auth?: ApiAuthResult,
+  _auth?: ApiAuthResult,
 ): NextResponse {
   const body: Record<string, unknown> = { error: { code, message } };
-  if (auth) {
-    body.meta = {
-      rateLimit: {
-        limit: auth.rateLimit,
-        remaining: auth.remaining,
-        reset: Math.ceil(auth.resetMs / 1000),
-      },
-    };
-  }
   return NextResponse.json(body, { status });
 }
 

@@ -247,6 +247,18 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 - [x] **SDK Stubs** — **Quick Start Guide** (`src/components/dashboard/developer/quick-start-guide.tsx`): Tabbed code examples (curl/JavaScript/Python) for 4 common operations: listing trends, searching signals, streaming events, registering webhooks. Copy button on each block. Link to full docs
 - [x] **Rate Limit & Error Reference** — Embedded in the OpenAPI spec's `info.description` as rich markdown: Authentication section (scopes table, Bearer format), Rate Limiting section (sliding window, headers, 429 behavior), Error Format section (status codes table, JSON structure), Pagination section, SSE section. Rendered by Scalar as the intro page
 
+### Phase 6E: Rate Limiting & Pricing Tiers (Deferred)
+
+> **Priority: MEDIUM** — Re-enable rate limiting when pricing/subscription tiers are introduced.
+
+- [ ] **User Tier Model** — Add `tier` field to User model (`free`, `pro`, `enterprise`) with per-tier rate limits, key caps, and monthly quotas
+- [ ] **Tier-Based Rate Limiting** — Re-enable in-memory sliding window rate limiter (`src/lib/rate-limiter.ts` still exists). Enforce per-key limits based on user tier. Pro/Enterprise users get unlimited or higher limits
+- [ ] **Rate Limit Headers** — Re-enable `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` response headers in `addRateLimitHeaders()`
+- [ ] **Rate Limit in API Responses** — Re-add `rateLimit` field to v1 API `meta` responses
+- [ ] **Tier Enforcement on Key Creation** — Clamp `rateLimit` and max active keys based on user tier during `POST /api/keys`
+- [ ] **Pricing Integration** — Stripe/payment integration for tier upgrades
+- [ ] **Admin Route for Tier Management** — Endpoint to assign/change user tiers
+
 ### Phase 7: Polish, Performance & Navigation
 
 > **Priority: LOW** — Final optimization and UX improvements.

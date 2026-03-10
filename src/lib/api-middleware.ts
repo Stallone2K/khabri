@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashApiKey, type ApiScope } from "@/lib/api-keys";
-import {
-  checkRateLimit,
-  getUnsyncedCount,
-  markSynced,
-} from "@/lib/rate-limiter";
-
-const DB_SYNC_THRESHOLD = 10;
 
 export interface ApiAuthResult {
   success: true;
@@ -119,58 +112,29 @@ export async function authenticateApiKey(
     };
   }
 
-  // 6. Rate limit
-  const rateCheck = checkRateLimit(apiKey.key, apiKey.rateLimit);
-  if (!rateCheck.allowed) {
-    logUsage(apiKey.id, req, 429, 0).catch(() => {});
-
-    const response = NextResponse.json(
-      {
-        error: "Rate limit exceeded",
-        limit: apiKey.rateLimit,
-        retryAfter: rateCheck.retryAfterSeconds,
-      },
-      { status: 429 },
-    );
-    response.headers.set(
-      "Retry-After",
-      String(rateCheck.retryAfterSeconds),
-    );
-    response.headers.set("X-RateLimit-Limit", String(apiKey.rateLimit));
-    response.headers.set("X-RateLimit-Remaining", "0");
-    response.headers.set(
-      "X-RateLimit-Reset",
-      String(Math.ceil(rateCheck.resetMs / 1000)),
-    );
-
-    return { success: false, response };
-  }
+  // 6. Rate limiting disabled — will be re-added with pricing tiers (see BACKLOG.md)
 
   // 7. Sync usage to DB periodically
-  const unsyncedCount = getUnsyncedCount(apiKey.key);
-  if (unsyncedCount >= DB_SYNC_THRESHOLD) {
-    prisma.apiKey
-      .update({
-        where: { id: apiKey.id },
-        data: {
-          lastUsedAt: new Date(),
-          requestCount: { increment: unsyncedCount },
-        },
-      })
-      .then(() => markSynced(apiKey.key))
-      .catch((err: unknown) =>
-        console.error("[API-AUTH] Failed to sync usage:", err),
-      );
-  }
+  prisma.apiKey
+    .update({
+      where: { id: apiKey.id },
+      data: {
+        lastUsedAt: new Date(),
+        requestCount: { increment: 1 },
+      },
+    })
+    .catch((err: unknown) =>
+      console.error("[API-AUTH] Failed to sync usage:", err),
+    );
 
   return {
     success: true,
     userId: apiKey.userId,
     keyId: apiKey.id,
     keyHash: apiKey.key,
-    rateLimit: apiKey.rateLimit,
-    remaining: rateCheck.remaining,
-    resetMs: rateCheck.resetMs,
+    rateLimit: 0,
+    remaining: 0,
+    resetMs: 0,
   };
 }
 
@@ -200,19 +164,14 @@ export async function logUsage(
 }
 
 /**
- * Add rate limit headers to a successful response.
+ * Rate limit headers — currently a no-op (rate limiting disabled).
+ * Will be re-enabled with pricing tiers (see BACKLOG.md).
  */
 export function addRateLimitHeaders(
   response: NextResponse,
-  limit: number,
-  remaining: number,
-  resetMs: number,
+  _limit: number,
+  _remaining: number,
+  _resetMs: number,
 ): NextResponse {
-  response.headers.set("X-RateLimit-Limit", String(limit));
-  response.headers.set("X-RateLimit-Remaining", String(remaining));
-  response.headers.set(
-    "X-RateLimit-Reset",
-    String(Math.ceil(resetMs / 1000)),
-  );
   return response;
 }
