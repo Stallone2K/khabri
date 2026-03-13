@@ -53,196 +53,192 @@ async function fetchFeed(feed: FeedDef): Promise<{
   }
 }
 
-/** Dedup items against DB + seen set, insert signals, return unique items */
-async function dedupAndInsert(items: FeedItem[], seenUrls: Set<string>) {
-  const valid = items.filter((s) => s.url && !seenUrls.has(s.url));
-  if (valid.length === 0) return { unique: [], inserted: 0 };
+/** Fetch feeds in batches to avoid overwhelming network */
+async function fetchFeedsInBatches(feeds: FeedDef[], batchSize: number = 20) {
+  const allResults: Awaited<ReturnType<typeof fetchFeed>>[] = [];
 
-  const urls = valid.map((s) => s.url);
-  const existing = await prisma.signal.findMany({
-    where: { url: { in: urls } },
-    select: { url: true },
-  });
-  const existingSet = new Set(existing.map((s) => s.url));
+  for (let i = 0; i < feeds.length; i += batchSize) {
+    const batch = feeds.slice(i, i + batchSize);
+    const results = await Promise.allSettled(batch.map(fetchFeed));
 
-  const unique: FeedItem[] = [];
-  for (const item of valid) {
-    if (!existingSet.has(item.url) && !seenUrls.has(item.url)) {
-      seenUrls.add(item.url);
-      unique.push(item);
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        allResults.push(result.value);
+      }
     }
   }
 
-  let inserted = 0;
-  if (unique.length > 0) {
-    const result = await prisma.signal.createMany({
-      data: unique.map((s) => ({
-        title: s.traffic ? `[Traffic: ${s.traffic}] ${s.title}` : s.title,
-        url: s.url,
-        source: s.source,
-        category: s.category,
-        publishedAt: s.pubDate,
-      })),
-      skipDuplicates: true,
-    });
-    inserted = result.count;
-  }
-
-  return { unique, inserted };
-}
-
-/** Rank signals with Gemini and save as RankedTrend */
-async function rankAndSave(
-  items: FeedItem[],
-  userId: string,
-  userCountryCode: string | null,
-  feedCount: number,
-) {
-  let signalsToRank = items.map((s) => ({
-    title: s.traffic ? `[Traffic: ${s.traffic}] ${s.title}` : s.title,
-    url: s.url, source: s.source, category: s.category,
-  }));
-
-  // If few new signals, supplement with recent DB signals
-  if (signalsToRank.length < 15) {
-    const recent = await prisma.signal.findMany({
-      orderBy: { createdAt: "desc" }, take: 80,
-    });
-    signalsToRank = recent.map((s) => ({
-      title: s.title, url: s.url, source: s.source,
-      category: s.category || "UNKNOWN",
-    }));
-  }
-
-  const signalText = signalsToRank
-    .slice(0, 120)
-    .map((s) => {
-      const prefix = s.source === "GoogleTrends" ? "**[HIGH TRAFFIC]** " : "";
-      return `- [${s.source}][${s.category}] ${prefix}${s.title} (Link: ${s.url})`;
-    })
-    .join("\n");
-
-  const finalPrompt = `${buildTrendEnginePrompt(userCountryCode)}
-
-SPECIAL INSTRUCTION:
-- Prioritize items marked with "[HIGH TRAFFIC]" or from "GoogleTrends" if they also have strong narrative potential.
-- These represent verified mass-interest topics.
-- You are analyzing signals from ${feedCount} feeds across ${new Set(signalsToRank.map((s) => s.category)).size} categories.
-
-RAW SIGNALS (${signalsToRank.length} total):
-${signalText}`;
-
-  const response = await gemini.models.generateContent({
-    model: "gemini-2.0-flash",
-    contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-    config: { responseMimeType: "application/json", temperature: 0.2 },
-  });
-
-  const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-  const jsonString = responseText.replace(/```json|```/g, "").trim();
-
-  let rankedTrends: any[] = [];
-  try {
-    rankedTrends = JSON.parse(jsonString);
-  } catch {
-    console.error("[INGEST] Failed to parse Gemini JSON:", responseText);
-    return 0;
-  }
-
-  if (Array.isArray(rankedTrends) && rankedTrends.length > 0) {
-    await prisma.rankedTrend.createMany({
-      data: rankedTrends.map((trend: any) => ({
-        rank: trend.rank || 99,
-        topic: trend.topic || "Unknown",
-        score: trend.score || 0,
-        reason: trend.reason || "",
-        category: trend.category || null,
-        region: trend.region || null,
-        originalUrl: trend.original_url || null,
-        userId,
-      })),
-    });
-  }
-
-  return rankedTrends.length;
+  return allResults;
 }
 
 // ---------------------------------------------------------------------------
-// BACKGROUND PIPELINE — processes in batches, saves trends after each batch
-// so the frontend picks up new data within seconds
+// BACKGROUND PIPELINE — fetches all feeds, then ranks everything at once
 // ---------------------------------------------------------------------------
 async function runPipeline(userId: string, userCountryCode: string | null) {
   try {
+    // 1. Load active feeds
     const feeds = await prisma.feedCatalog.findMany({
       where: { isActive: true, consecutiveErrors: { lt: 5 } },
       select: { id: true, url: true, sourceLabel: true, category: true },
     });
 
     if (feeds.length === 0) return;
-    console.log(`[INGEST] Starting batched pipeline with ${feeds.length} feeds`);
+    console.log(`[INGEST] Starting pipeline with ${feeds.length} feeds`);
 
-    const BATCH_SIZE = 30;
-    const seenUrls = new Set<string>();
-    const allSuccessIds: string[] = [];
-    const allFailedIds: string[] = [];
-    let totalSignals = 0;
-    let totalTrends = 0;
+    // 2. Fetch all feeds (batches of 20 for network)
+    const feedResults = await fetchFeedsInBatches(feeds, 20);
 
-    // Process in batches — each batch: fetch → dedup → insert → rank → save
-    for (let i = 0; i < feeds.length; i += BATCH_SIZE) {
-      const batch = feeds.slice(i, i + BATCH_SIZE);
-      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const successFeedIds: string[] = [];
+    const failedFeedIds: string[] = [];
+    const allItems: FeedItem[] = [];
 
-      // 1. Fetch this batch of feeds in parallel
-      const results = await Promise.allSettled(batch.map(fetchFeed));
-      const batchItems: FeedItem[] = [];
-
-      for (const result of results) {
-        if (result.status !== "fulfilled") continue;
-        const r = result.value;
-        if (r.error) {
-          allFailedIds.push(r.feedId);
-        } else {
-          allSuccessIds.push(r.feedId);
-          batchItems.push(...r.items);
-        }
-      }
-
-      // 2. Dedup + insert signals
-      const { unique, inserted } = await dedupAndInsert(batchItems, seenUrls);
-      totalSignals += inserted;
-
-      // 3. Rank with AI and save to DB immediately
-      if (unique.length > 0) {
-        const trendsCount = await rankAndSave(
-          unique, userId, userCountryCode, allSuccessIds.length,
-        );
-        totalTrends += trendsCount;
-        console.log(`[INGEST] Batch ${batchNum}: ${inserted} signals, ${trendsCount} trends saved`);
+    for (const result of feedResults) {
+      if (result.error) {
+        failedFeedIds.push(result.feedId);
+      } else if (result.items.length > 0) {
+        successFeedIds.push(result.feedId);
+        allItems.push(...result.items);
+      } else {
+        successFeedIds.push(result.feedId);
       }
     }
 
-    // Update feed health after all batches
+    console.log(
+      `[INGEST] Fetched ${allItems.length} items from ${successFeedIds.length} feeds (${failedFeedIds.length} failed)`,
+    );
+
+    // 3. Bulk dedup
+    const validItems = allItems.filter((s) => s.url);
+    const allUrls = validItems.map((s) => s.url);
+
+    const existingSignals = await prisma.signal.findMany({
+      where: { url: { in: allUrls } },
+      select: { url: true },
+    });
+    const existingUrlSet = new Set(existingSignals.map((s) => s.url));
+
+    const newItems = validItems.filter((s) => !existingUrlSet.has(s.url));
+
+    const seenUrls = new Set<string>();
+    const uniqueNewItems = newItems.filter((s) => {
+      if (seenUrls.has(s.url)) return false;
+      seenUrls.add(s.url);
+      return true;
+    });
+
+    // 4. Bulk insert new signals
+    let newSignalsCount = 0;
+    if (uniqueNewItems.length > 0) {
+      const result = await prisma.signal.createMany({
+        data: uniqueNewItems.map((s) => ({
+          title: s.traffic ? `[Traffic: ${s.traffic}] ${s.title}` : s.title,
+          url: s.url,
+          source: s.source,
+          category: s.category,
+          publishedAt: s.pubDate,
+        })),
+        skipDuplicates: true,
+      });
+      newSignalsCount = result.count;
+    }
+
+    console.log(`[INGEST] Ingested ${newSignalsCount} new signals`);
+
+    // 5. Update feed health
     const now = new Date();
-    if (allSuccessIds.length > 0) {
+    if (successFeedIds.length > 0) {
       await prisma.feedCatalog.updateMany({
-        where: { id: { in: allSuccessIds } },
+        where: { id: { in: successFeedIds } },
         data: { lastFetchedAt: now, consecutiveErrors: 0 },
       });
     }
-    if (allFailedIds.length > 0) {
+    if (failedFeedIds.length > 0) {
       await prisma.$executeRaw`
         UPDATE "FeedCatalog"
         SET "consecutiveErrors" = "consecutiveErrors" + 1,
             "lastErrorAt" = ${now}
-        WHERE "id" = ANY(${allFailedIds})
+        WHERE "id" = ANY(${failedFeedIds})
       `;
     }
 
-    // Enrich at the end
+    // 6. Prepare signals for AI ranking
+    let signalsToRank = uniqueNewItems.map((s) => ({
+      title: s.traffic ? `[Traffic: ${s.traffic}] ${s.title}` : s.title,
+      url: s.url,
+      source: s.source,
+      category: s.category,
+    }));
+
+    if (signalsToRank.length < 15) {
+      console.log("[INGEST] Few new signals. Fetching recent from DB for context...");
+      const recentDbSignals = await prisma.signal.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 80,
+      });
+      signalsToRank = recentDbSignals.map((s) => ({
+        title: s.title,
+        url: s.url,
+        source: s.source,
+        category: s.category || "UNKNOWN",
+      }));
+    }
+
+    const signalText = signalsToRank
+      .slice(0, 120)
+      .map((s) => {
+        const prefix = s.source === "GoogleTrends" ? "**[HIGH TRAFFIC]** " : "";
+        return `- [${s.source}][${s.category}] ${prefix}${s.title} (Link: ${s.url})`;
+      })
+      .join("\n");
+
+    // 7. AI ranking (Gemini) — one call with all signals
+    const finalPrompt = `${buildTrendEnginePrompt(userCountryCode)}
+
+SPECIAL INSTRUCTION:
+- Prioritize items marked with "[HIGH TRAFFIC]" or from "GoogleTrends" if they also have strong narrative potential.
+- These represent verified mass-interest topics.
+- You are analyzing signals from ${successFeedIds.length} feeds across ${new Set(signalsToRank.map((s) => s.category)).size} categories.
+
+RAW SIGNALS (${signalsToRank.length} total):
+${signalText}`;
+
+    const response = await gemini.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+      config: { responseMimeType: "application/json", temperature: 0.2 },
+    });
+
+    const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+    const jsonString = responseText.replace(/```json|```/g, "").trim();
+
+    let rankedTrends: any[] = [];
+    try {
+      rankedTrends = JSON.parse(jsonString);
+    } catch {
+      console.error("[INGEST] Failed to parse Gemini JSON:", responseText);
+      return;
+    }
+
+    // 8. Save ranked trends
+    if (Array.isArray(rankedTrends) && rankedTrends.length > 0) {
+      await prisma.rankedTrend.createMany({
+        data: rankedTrends.map((trend: any) => ({
+          rank: trend.rank || 99,
+          topic: trend.topic || "Unknown",
+          score: trend.score || 0,
+          reason: trend.reason || "",
+          category: trend.category || null,
+          region: trend.region || null,
+          originalUrl: trend.original_url || null,
+          userId,
+        })),
+      });
+    }
+
+    // 9. Enrich
     const enrichStats = await enrichSignals(100);
     console.log(
-      `[INGEST] Pipeline complete: ${totalSignals} signals, ${totalTrends} trends, ${enrichStats.enrichedCount} enriched`,
+      `[INGEST] Pipeline complete: ${newSignalsCount} signals, ${rankedTrends.length} trends, ${enrichStats.enrichedCount} enriched`,
     );
   } catch (error: any) {
     console.error("[INGEST] Background pipeline error:", error);
@@ -267,8 +263,7 @@ export async function POST() {
   });
   const userCountryCode = user?.countryCode || null;
 
-  // Pipeline runs AFTER response is sent — processes in batches,
-  // saving trends after each batch so polls pick them up quickly
+  // Pipeline runs AFTER response is sent
   after(async () => {
     await runPipeline(userId, userCountryCode);
   });
