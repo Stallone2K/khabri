@@ -90,10 +90,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Look up the first user as the system user for ranked trends
-  const systemUser = await prisma.user.findFirst();
-  const userId = systemUser?.id || null;
-  const userCountryCode = systemUser?.countryCode || null;
+  // Look up ALL active users — cron generates trends for everyone
+  const allUsers = await prisma.user.findMany({
+    select: { id: true, countryCode: true },
+  });
+  // Use the first user's country for the AI prompt (geo-classification)
+  const userCountryCode = allUsers[0]?.countryCode || null;
 
   try {
     // =========================================================================
@@ -289,41 +291,46 @@ ${signalText}`;
     }
 
     // =========================================================================
-    // 9. SAVE RANKED TRENDS
+    // 9. SAVE RANKED TRENDS — for ALL users
     // =========================================================================
-    if (Array.isArray(rankedTrends) && rankedTrends.length > 0 && userId) {
+    if (Array.isArray(rankedTrends) && rankedTrends.length > 0 && allUsers.length > 0) {
+      const trendData = rankedTrends.map((trend: any) => ({
+        rank: trend.rank || 99,
+        topic: trend.topic || "Unknown",
+        score: trend.score || 0,
+        reason: trend.reason || "",
+        category: trend.category || null,
+        region: trend.region || null,
+        originalUrl: trend.original_url || null,
+      }));
+
+      // Create trends for every user
       await prisma.rankedTrend.createMany({
-        data: rankedTrends.map((trend: any) => ({
-          rank: trend.rank || 99,
-          topic: trend.topic || "Unknown",
-          score: trend.score || 0,
-          reason: trend.reason || "",
-          category: trend.category || null,
-          region: trend.region || null,
-          originalUrl: trend.original_url || null,
-          userId,
-        })),
+        data: allUsers.flatMap((user) =>
+          trendData.map((trend) => ({ ...trend, userId: user.id })),
+        ),
       });
 
-      // Emit webhook events for new trends
-      emitEvent("trend.new", {
-        count: rankedTrends.length,
-        topTrends: rankedTrends.slice(0, 5).map((t: any) => ({
-          topic: t.topic,
-          score: t.score,
-          category: t.category,
-        })),
-      }, userId);
+      // Emit webhook events per user
+      for (const user of allUsers) {
+        emitEvent("trend.new", {
+          count: rankedTrends.length,
+          topTrends: rankedTrends.slice(0, 5).map((t: any) => ({
+            topic: t.topic,
+            score: t.score,
+            category: t.category,
+          })),
+        }, user.id);
 
-      // Emit spike events for high-scoring trends
-      const spikes = rankedTrends.filter((t: any) => (t.score || 0) >= 90);
-      for (const spike of spikes) {
-        emitEvent("trend.spike", {
-          topic: spike.topic,
-          score: spike.score,
-          category: spike.category,
-          reason: spike.reason,
-        }, userId);
+        const spikes = rankedTrends.filter((t: any) => (t.score || 0) >= 90);
+        for (const spike of spikes) {
+          emitEvent("trend.spike", {
+            topic: spike.topic,
+            score: spike.score,
+            category: spike.category,
+            reason: spike.reason,
+          }, user.id);
+        }
       }
     }
 

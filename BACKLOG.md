@@ -166,32 +166,32 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 
 ### Phase 5: Production Deployment
 
-> **Priority: CRITICAL** — Get Khabri live on Vercel with all crons running, env vars configured, and production DB active.
+> **Priority: CRITICAL** — Get Khabri live on GCP with Cloud Scheduler crons running, env vars configured, and production DB active.
+> **Domain:** `khabri.stallone.co.in` | **Region:** `asia-south1` (Mumbai)
 
 #### 5A. Pre-Deployment Fixes
 
 - [x] **TypeScript Build Check** — `npx tsc --noEmit` passes, `next build` completes without errors
 - [x] **Remove Debug Logs** — Stripped `console.log("[NarrativeTree]...")` debug statements from client components. Server-side logs kept for production monitoring
 - [x] **Environment Variables Audit** — 7 required env vars: `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `GEMINI_API_KEY`, `CRON_SECRET`
-- [x] **Google OAuth Redirect URIs** — Add production domain to Google Cloud Console: `https://<domain>/api/auth/callback/google`
+- [x] **Google OAuth Redirect URIs** — Add production domain to Google Cloud Console: `https://khabri.stallone.co.in/api/auth/callback/google`
 - [x] **Prisma Generate in Build** — Already in `package.json` build script: `prisma generate && next build`
 
-#### 5B. Vercel Deployment
+#### 5B. GCP Deployment
 
-- [x] **Install Vercel CLI** — `npm i -g vercel`
-- [ ] **Link Project** — `vercel link` to create/connect Vercel project
-- [ ] **Set Environment Variables** — Add all env vars to Vercel project settings (Dashboard → Settings → Environment Variables). Set `NEXTAUTH_URL` to production URL
-- [ ] **Connect Neon DB** — Verify `DATABASE_URL` points to production Neon instance (already using Neon pooler). Consider separate preview/production DB if needed
-- [ ] **Deploy** — `vercel --prod` for first production deployment
-- [ ] **Verify Crons** — Confirm `vercel.json` crons are registered (Vercel Dashboard → Crons tab). Crons require Vercel Pro plan or higher
-- [ ] **Custom Domain** — Add custom domain via Vercel Dashboard → Domains (optional, can use `.vercel.app` initially)
+- [ ] **Dockerize App** — Create `Dockerfile` for Next.js standalone build (multi-stage: deps → build → runtime). Add `.dockerignore` for node_modules, .git, .env
+- [ ] **Deploy to Cloud Run** — Build & push image to Artifact Registry, deploy as Cloud Run service in `asia-south1`. Set env vars via `--set-env-vars` or Secret Manager
+- [ ] **Set Environment Variables** — Configure all 7 env vars in Cloud Run service (or use GCP Secret Manager for sensitive values like `DATABASE_URL`, `NEXTAUTH_SECRET`, `GEMINI_API_KEY`, `CRON_SECRET`)
+- [ ] **Connect Neon DB** — Verify `DATABASE_URL` points to production Neon instance (already using Neon pooler). Ensure Cloud Run can reach Neon (public endpoint)
+- [ ] **Setup Cloud Scheduler Crons** — Run `scripts/setup-gcp-cron.sh` to create 7 Cloud Scheduler jobs that POST to cron API routes with `Authorization: Bearer ${CRON_SECRET}` header. Jobs: ingest (every 3h), enrich (every 3h offset), anomaly (every 3h offset), trend-monitor (every 3h offset), usage-aggregate (daily 01:00), webhook-deliver (every 5min), webhook-cleanup (daily 03:00)
+- [ ] **Custom Domain** — Map `khabri.stallone.co.in` to Cloud Run service via domain mapping or load balancer. GCP auto-provisions managed SSL certificate
 
 #### 5C. Production Hardening
 
-- [ ] **Cron Auth** — Verify all cron routes check `CRON_SECRET` header (Vercel sends `Authorization: Bearer <CRON_SECRET>` automatically)
-- [ ] **Error Monitoring** — Consider adding Vercel's built-in logging or Sentry for error tracking
-- [ ] **DB Connection Pooling** — Already using Neon pooler URL (DONE). Verify connection limits under load
-- [ ] **Function Timeouts** — Vercel Hobby: 10s, Pro: 60s. Crons that call Gemini (trend-monitor, ingest) may need Pro plan for 60s timeout
+- [x] **Cron Auth** — All cron routes verify `Authorization: Bearer ${CRON_SECRET}` header via `verifyCronSecret()` in `src/lib/api-auth.ts`. Cloud Scheduler sends this header automatically
+- [ ] **Error Monitoring** — Enable Cloud Run logging in GCP Console (Cloud Logging). Consider adding Sentry or Google Cloud Error Reporting for structured error tracking
+- [ ] **DB Connection Pooling** — Already using Neon pooler URL (DONE). Verify connection limits under Cloud Run concurrency
+- [ ] **Request Timeouts** — Cloud Run default: 300s (5min). Sufficient for Gemini-calling crons (ingest, trend-monitor). Adjust via `--timeout` flag if needed
 - [ ] **Rate Limit Gemini** — Ensure cron pipelines don't exceed Gemini API free tier limits (15 RPM for Flash). Add delays between batches if needed
 - [ ] **Seed Production Data** — Run `npm run seed:feeds` and `npm run seed:locations` against production DB
 - [ ] **First Ingest Run** — Manually trigger `POST /api/ingest` once to populate initial signals and trends
@@ -199,10 +199,11 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 
 #### 5D. Post-Launch
 
-- [ ] **Monitor Cron Logs** — Watch first 24h of cron runs for failures (Vercel Dashboard → Logs)
+- [ ] **Monitor Cron Logs** — Watch first 24h of Cloud Scheduler + Cloud Run logs for failures (GCP Console → Cloud Logging)
 - [ ] **Anomaly Baseline Warmup** — First 12h: baselines accumulate, no anomalies flagged (expected)
-- [ ] **DNS & SSL** — Vercel auto-provisions SSL. If custom domain, verify DNS propagation
+- [ ] **DNS & SSL** — GCP managed SSL auto-provisions. Verify DNS propagation for `khabri.stallone.co.in`
 - [ ] **Backup Strategy** — Neon has point-in-time recovery. Verify it's enabled on the Neon dashboard
+- [ ] **Cold Start Optimization** — Monitor Cloud Run cold start times. Set `--min-instances=1` if latency is unacceptable
 
 ---
 
@@ -265,6 +266,7 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 
 - [ ] **Sidebar Restructure** — Overview, Signals, Intelligence (sub-menu), Geo Search, Markets (sub-menu), Tracked Trends, Feeds, Keywords, Alerts, Settings
 - [ ] **Enhanced Ticker** — Multi-section: breaking alerts (red), top trends with momentum arrows, market data, CII alerts
+- [ ] **Instant Trend Discovery** — Ingestion pipeline (feed fetch → Gemini ranking → DB save) takes ~5-10s before first trends appear. User currently sees a spinner until polling detects new trends. Goal: make "Discover Trends" feel instant. Options: pre-cache recent trends, optimistic UI with stale data, WebSocket push when batch completes, or split ranking into micro-batches (5 feeds) for sub-second first results
 - [ ] **Performance** — Replace N+1 queries with aggregations, `unstable_cache` for hot API responses (30-60s TTL)
 - [ ] **Data Archival Cron** — `POST /api/cron/cleanup` (daily 03:00 UTC): archive signals >90 days, prune time series, resolve stale anomalies
 - [ ] **Category Customization** — User settings to filter categories by interest (e.g., finance person hides sports/entertainment)

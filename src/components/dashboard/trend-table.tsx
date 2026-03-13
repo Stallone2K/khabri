@@ -25,7 +25,7 @@ import {
 	MoreHorizontal,
 	ExternalLink,
 	Loader2,
-	Play,
+
 	Copy,
 	FileText,
 	ChevronLeft,
@@ -132,20 +132,41 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 
 	const runPipeline = async () => {
 		setRefreshing(true);
-		toast.info("Scanning 170+ Feeds\u2026", { description: "This may take 15-30 seconds." });
 		try {
+			// Fire-and-forget: trigger background ingestion
 			const res = await fetch("/api/ingest", { method: "POST" });
-			const data = await res.json();
-			if (!res.ok) throw new Error(data.error || "Failed");
+			if (!res.ok) {
+				const data = await res.json();
+				throw new Error(data.error || "Failed");
+			}
 
-			toast.success("Pipeline Complete", {
-				description: `Scanned ${data.feedsScanned} feeds. Found ${data.trendsGenerated} trends, ingested ${data.signalsIngested} new signals.`
-			});
-			fetchTrends(1); // go back to page 1 to see latest
-			if (onUpdate) onUpdate();
+			// Poll for new trends every 5s — spinner stays until trends arrive
+			const initialCount = trends.length;
+			let pollCount = 0;
+			const pollInterval = setInterval(async () => {
+				pollCount++;
+				const regionParam = regionFilter && regionFilter !== "ALL" ? `&region=${regionFilter}` : "";
+				try {
+					const res = await fetch(`/api/trends/list?page=1&pageSize=30${regionParam}`);
+					if (res.ok) {
+						const data = await res.json();
+						setTrends(data.trends);
+						setPagination(data.pagination);
+						if (data.pagination.totalCount > initialCount || pollCount >= 24) {
+							clearInterval(pollInterval);
+							setRefreshing(false);
+							if (data.pagination.totalCount > initialCount && onUpdate) onUpdate();
+						}
+					}
+				} catch {
+					// ignore poll errors
+				}
+			}, 5000);
+
+			// Safety timeout
+			setTimeout(() => { clearInterval(pollInterval); setRefreshing(false); }, 120000);
 		} catch (e: any) {
-			toast.error("Pipeline Failed", { description: e.message });
-		} finally {
+			toast.error("Scan Failed", { description: e.message });
 			setRefreshing(false);
 		}
 	};
@@ -283,11 +304,8 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 						<Loader2 className="h-6 w-6 animate-spin" />
 					</div>
 				) : trends.length === 0 ? (
-					<div className="flex flex-col items-center justify-center p-12 text-center space-y-3">
-						<p className="text-muted-foreground">No trends detected yet.</p>
-						<Button onClick={runPipeline} variant="secondary">
-							<Play className="mr-2 h-4 w-4" /> Scan Feeds
-						</Button>
+					<div className="flex items-center justify-center p-12 text-center">
+						<p className="text-muted-foreground">Scan To Find New Trends</p>
 					</div>
 				) : (
 					<>

@@ -24,9 +24,9 @@ export async function GET(req: Request) {
       scoreAgg,
       topSource,
     ] = await Promise.all([
-      // 1. Total Signals (24h)
-      prisma.signal.count({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
+      // 1. Total Signals (24h) — user-scoped via RankedTrend
+      prisma.rankedTrend.count({
+        where: { userId, createdAt: { gte: twentyFourHoursAgo } },
       }),
       // 2. High Impact Trends
       prisma.rankedTrend.count({
@@ -47,19 +47,18 @@ export async function GET(req: Request) {
         where: { userId },
         _avg: { score: true },
       }),
-      // 6. Top Source (Optional Context)
-      prisma.signal.groupBy({
-        by: ["source"],
-        where: { createdAt: { gte: twentyFourHoursAgo } },
-        _count: { source: true },
-        orderBy: { _count: { source: "desc" } },
+      // 6. Top Source (Optional Context) — user-scoped via RankedTrend
+      prisma.rankedTrend.groupBy({
+        by: ["category"],
+        where: { userId, createdAt: { gte: twentyFourHoursAgo }, category: { not: null } },
+        _count: { category: true },
+        orderBy: { _count: { category: "desc" } },
         take: 1,
       }),
     ]);
 
-    // Calculate Velocity (Signals per hour active today)
-    // Floor of 1 to avoid division by zero errors visually
-    const velocity = Math.max(1, Math.round(signalsCount / 24));
+    // Calculate Velocity (Trends per hour in last 24h for this user)
+    const velocity = Math.round(signalsCount / 24);
 
     const response = NextResponse.json({
       signalsProcessed: signalsCount,
@@ -67,7 +66,7 @@ export async function GET(req: Request) {
       lastUpdate: lastTrend?.createdAt || null,
       activeProjects: activeProjects,
       avgScore: Math.round(scoreAgg._avg.score || 0),
-      topSource: topSource[0]?.source || "N/A",
+      topSource: topSource[0]?.category || "N/A",
       trendVelocity: velocity,
     });
     if (auth.authMode === "apikey" && auth.keyId) {
