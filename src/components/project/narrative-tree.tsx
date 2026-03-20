@@ -218,7 +218,7 @@ export function NarrativeTreeView({ project }: NarrativeTreeViewProps) {
             ref={(el) => {
               if (el && editingTitle) el.focus();
             }}
-            className="text-base font-semibold cursor-text outline-none hover:text-primary transition-colors"
+            className="text-base font-semibold cursor-text outline-none hover:text-primary transition-colors truncate min-w-0"
             contentEditable
             suppressContentEditableWarning
             onFocus={() => setEditingTitle(true)}
