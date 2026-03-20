@@ -5,7 +5,6 @@ import { useUserCountry } from '@/hooks/use-user-country';
 import { TrendTable } from '@/components/dashboard/trend-table';
 import { TrendChart } from '@/components/dashboard/trend-chart';
 import { TrendTicker } from '@/components/dashboard/trend-ticker';
-import { TrendingPanel } from '@/components/dashboard/trending-panel';
 import { useSidebarCollapsed } from '@/app/dashboard/layout';
 import { PanelRight } from 'lucide-react';
 import {
@@ -168,8 +167,6 @@ export default function DashboardPage() {
 				</div>
 
 				<DashboardStats trigger={refreshTrigger} />
-
-				<TrendingPanel />
 
 				<TrendChart trigger={refreshTrigger} selectedRank={selectedRank} onSelectRank={setSelectedRank} regionFilter={regionFilter} />
 
