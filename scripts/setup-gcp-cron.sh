@@ -5,10 +5,10 @@
 # Prerequisites:
 #   1. gcloud CLI installed and authenticated
 #   2. CRON_SECRET env var set (same value as in Cloud Run)
-#   3. APP_URL env var set (e.g. https://khabri.stallone.co.in)
+#   3. APP_URL env var set (e.g. https://khabri.shownomore.com)
 #
 # Usage:
-#   APP_URL=https://khabri.stallone.co.in CRON_SECRET=your-secret ./scripts/setup-gcp-cron.sh
+#   APP_URL=https://khabri.shownomore.com CRON_SECRET=your-secret ./scripts/setup-gcp-cron.sh
 #
 # To delete all jobs:
 #   ./scripts/setup-gcp-cron.sh --delete
@@ -17,7 +17,7 @@
 set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────────────
-APP_URL="${APP_URL:?'APP_URL is required (e.g. https://khabri.stallone.co.in)'}"
+APP_URL="${APP_URL:?'APP_URL is required (e.g. https://khabri.shownomore.com)'}"
 CRON_SECRET="${CRON_SECRET:?'CRON_SECRET is required'}"
 GCP_LOCATION="${GCP_LOCATION:-asia-south1}"  # Default to Mumbai, change as needed
 GCP_PROJECT="${GCP_PROJECT:-$(gcloud config get-value project 2>/dev/null)}"

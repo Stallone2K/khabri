@@ -22,7 +22,7 @@ Connect to a real-time event stream using Server-Sent Events (SSE). Receive inst
 ## Connection
 
 ```bash
-curl -N "https://khabri.stallone.co.in/api/v1/stream?events=trend.new,anomaly.detected" \
+curl -N "https://khabri.shownomore.com/api/v1/stream?events=trend.new,anomaly.detected" \
   -H "Authorization: Bearer khabri_YOUR_KEY"
 ```
 
@@ -42,7 +42,7 @@ data: {"timestamp":"2025-03-01T10:30:30Z"}
 
 ```javascript
 const eventSource = new EventSource(
-  "https://khabri.stallone.co.in/api/v1/stream?events=anomaly.detected",
+  "https://khabri.shownomore.com/api/v1/stream?events=anomaly.detected",
   { headers: { "Authorization": "Bearer khabri_YOUR_KEY" } }
 );
 
@@ -66,7 +66,7 @@ eventSource.onerror = () => {
 import sseclient
 import requests
 
-url = "https://khabri.stallone.co.in/api/v1/stream?events=anomaly.detected"
+url = "https://khabri.shownomore.com/api/v1/stream?events=anomaly.detected"
 headers = {"Authorization": "Bearer khabri_YOUR_KEY"}
 
 response = requests.get(url, headers=headers, stream=True)
@@ -91,7 +91,7 @@ import (
 
 func main() {
 	req, _ := http.NewRequest("GET",
-		"https://khabri.stallone.co.in/api/v1/stream?events=anomaly.detected", nil)
+		"https://khabri.shownomore.com/api/v1/stream?events=anomaly.detected", nil)
 	req.Header.Set("Authorization", "Bearer khabri_YOUR_KEY")
 
 	resp, err := http.DefaultClient.Do(req)

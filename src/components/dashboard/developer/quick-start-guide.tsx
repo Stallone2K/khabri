@@ -12,8 +12,8 @@ const EXAMPLES = [
     title: "List Trends",
     description: "Get the latest ranked trends",
     curl: `curl -H "Authorization: Bearer khabri_YOUR_KEY" \\
-  "https://khabri.stallone.co.in/api/v1/trends?page=1&page_size=10"`,
-    javascript: `const response = await fetch("https://khabri.stallone.co.in/api/v1/trends", {
+  "https://khabri.shownomore.com/api/v1/trends?page=1&page_size=10"`,
+    javascript: `const response = await fetch("https://khabri.shownomore.com/api/v1/trends", {
   headers: { "Authorization": "Bearer khabri_YOUR_KEY" }
 });
 const { data, meta } = await response.json();
@@ -21,7 +21,7 @@ console.log(data); // Array of ranked trends`,
     python: `import requests
 
 headers = {"Authorization": "Bearer khabri_YOUR_KEY"}
-response = requests.get("https://khabri.stallone.co.in/api/v1/trends", headers=headers)
+response = requests.get("https://khabri.shownomore.com/api/v1/trends", headers=headers)
 trends = response.json()["data"]
 print(f"Found {len(trends)} trends")`,
   },
@@ -29,9 +29,9 @@ print(f"Found {len(trends)} trends")`,
     title: "Search Signals",
     description: "Search signals by entity or keyword",
     curl: `curl -H "Authorization: Bearer khabri_YOUR_KEY" \\
-  "https://khabri.stallone.co.in/api/v1/signals/search?entity=Tesla&entity_type=COMPANY"`,
+  "https://khabri.shownomore.com/api/v1/signals/search?entity=Tesla&entity_type=COMPANY"`,
     javascript: `const params = new URLSearchParams({ entity: "Tesla", entity_type: "COMPANY" });
-const response = await fetch(\`https://khabri.stallone.co.in/api/v1/signals/search?\${params}\`, {
+const response = await fetch(\`https://khabri.shownomore.com/api/v1/signals/search?\${params}\`, {
   headers: { "Authorization": "Bearer khabri_YOUR_KEY" }
 });
 const { data } = await response.json();
@@ -40,7 +40,7 @@ data.forEach(signal => console.log(signal.title));`,
 
 headers = {"Authorization": "Bearer khabri_YOUR_KEY"}
 params = {"entity": "Tesla", "entity_type": "COMPANY"}
-response = requests.get("https://khabri.stallone.co.in/api/v1/signals/search",
+response = requests.get("https://khabri.shownomore.com/api/v1/signals/search",
                        headers=headers, params=params)
 for signal in response.json()["data"]:
     print(signal["title"])`,
@@ -49,9 +49,9 @@ for signal in response.json()["data"]:
     title: "Stream Real-Time Events",
     description: "Subscribe to live events via Server-Sent Events",
     curl: `curl -N -H "Authorization: Bearer khabri_YOUR_KEY" \\
-  "https://khabri.stallone.co.in/api/v1/stream?events=trend.new,anomaly.detected"`,
+  "https://khabri.shownomore.com/api/v1/stream?events=trend.new,anomaly.detected"`,
     javascript: `const eventSource = new EventSource(
-  "https://khabri.stallone.co.in/api/v1/stream?events=anomaly.detected", {
+  "https://khabri.shownomore.com/api/v1/stream?events=anomaly.detected", {
     headers: { "Authorization": "Bearer khabri_YOUR_KEY" }
   }
 );
@@ -67,7 +67,7 @@ eventSource.addEventListener("heartbeat", () => {
     python: `import sseclient
 import requests
 
-url = "https://khabri.stallone.co.in/api/v1/stream?events=anomaly.detected"
+url = "https://khabri.shownomore.com/api/v1/stream?events=anomaly.detected"
 headers = {"Authorization": "Bearer khabri_YOUR_KEY"}
 
 response = requests.get(url, headers=headers, stream=True)
@@ -83,8 +83,8 @@ for event in client.events():
     curl: `curl -X POST -H "Authorization: Bearer khabri_YOUR_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"url":"https://your-server.com/webhook","events":["trend.new","anomaly.detected"]}' \\
-  "https://khabri.stallone.co.in/api/v1/webhooks"`,
-    javascript: `const response = await fetch("https://khabri.stallone.co.in/api/v1/webhooks", {
+  "https://khabri.shownomore.com/api/v1/webhooks"`,
+    javascript: `const response = await fetch("https://khabri.shownomore.com/api/v1/webhooks", {
   method: "POST",
   headers: {
     "Authorization": "Bearer khabri_YOUR_KEY",
@@ -108,7 +108,7 @@ body = {
     "url": "https://your-server.com/webhook",
     "events": ["trend.new", "anomaly.detected"]
 }
-response = requests.post("https://khabri.stallone.co.in/api/v1/webhooks",
+response = requests.post("https://khabri.shownomore.com/api/v1/webhooks",
                         headers=headers, json=body)
 data = response.json()["data"]
 # IMPORTANT: Save data["secret"] — it's shown only once

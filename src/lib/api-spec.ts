@@ -69,7 +69,7 @@ Paginated endpoints accept \`page\` (1-based) and \`page_size\` (default 25, max
 The \`/v1/stream\` endpoint provides real-time events via SSE. Connect with EventSource or any SSE client. Events include a heartbeat every 30 seconds.`,
   },
   servers: [
-    { url: "https://khabri.stallone.co.in/api/v1", description: "Production" },
+    { url: "https://khabri.shownomore.com/api/v1", description: "Production" },
     { url: "http://localhost:3000/api/v1", description: "Development" },
   ],
   security: [{ BearerAuth: [] }],

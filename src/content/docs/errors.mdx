@@ -37,7 +37,7 @@ The `code` field is a machine-readable string you can use in `switch` statements
 
 ```typescript
 async function fetchTrends() {
-  const response = await fetch("https://khabri.stallone.co.in/api/v1/trends", {
+  const response = await fetch("https://khabri.shownomore.com/api/v1/trends", {
     headers: { "Authorization": "Bearer " + process.env.KHABRI_API_KEY }
   });
 
@@ -69,7 +69,7 @@ import time
 
 def fetch_trends():
     response = requests.get(
-        "https://khabri.stallone.co.in/api/v1/trends",
+        "https://khabri.shownomore.com/api/v1/trends",
         headers={"Authorization": f"Bearer {API_KEY}"}
     )
 
@@ -160,7 +160,7 @@ def fetch_all_signals():
 
     while True:
         response = requests.get(
-            "https://khabri.stallone.co.in/api/v1/signals",
+            "https://khabri.shownomore.com/api/v1/signals",
             params={"page": page, "page_size": 100},
             headers={"Authorization": f"Bearer {API_KEY}"}
         )

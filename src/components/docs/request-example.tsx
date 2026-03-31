@@ -8,7 +8,7 @@ interface RequestExampleProps {
   body?: string;
 }
 
-const BASE = "https://khabri.stallone.co.in/api";
+const BASE = "https://khabri.shownomore.com/api";
 
 function generateCurl(method: string, path: string, params?: string, body?: string): string {
   const url = `${BASE}${path}${params ? `?${params}` : ""}`;

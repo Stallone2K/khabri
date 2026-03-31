@@ -167,14 +167,14 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 ### Phase 5: Production Deployment
 
 > **Priority: CRITICAL** — Get Khabri live on GCP with Cloud Scheduler crons running, env vars configured, and production DB active.
-> **Domain:** `khabri.stallone.co.in` | **Region:** `asia-south1` (Mumbai)
+> **Domain:** `khabri.shownomore.com` | **Region:** `asia-south1` (Mumbai)
 
 #### 5A. Pre-Deployment Fixes
 
 - [x] **TypeScript Build Check** — `npx tsc --noEmit` passes, `next build` completes without errors
 - [x] **Remove Debug Logs** — Stripped `console.log("[NarrativeTree]...")` debug statements from client components. Server-side logs kept for production monitoring
 - [x] **Environment Variables Audit** — 7 required env vars: `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `GEMINI_API_KEY`, `CRON_SECRET`
-- [x] **Google OAuth Redirect URIs** — Add production domain to Google Cloud Console: `https://khabri.stallone.co.in/api/auth/callback/google`
+- [x] **Google OAuth Redirect URIs** — Add production domain to Google Cloud Console: `https://khabri.shownomore.com/api/auth/callback/google`
 - [x] **Prisma Generate in Build** — Already in `package.json` build script: `prisma generate && next build`
 
 #### 5B. GCP Deployment
@@ -184,7 +184,7 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 - [ ] **Set Environment Variables** — Configure all 7 env vars in Cloud Run service (or use GCP Secret Manager for sensitive values like `DATABASE_URL`, `NEXTAUTH_SECRET`, `GEMINI_API_KEY`, `CRON_SECRET`)
 - [ ] **Connect Neon DB** — Verify `DATABASE_URL` points to production Neon instance (already using Neon pooler). Ensure Cloud Run can reach Neon (public endpoint)
 - [ ] **Setup Cloud Scheduler Crons** — Run `scripts/setup-gcp-cron.sh` to create 7 Cloud Scheduler jobs that POST to cron API routes with `Authorization: Bearer ${CRON_SECRET}` header. Jobs: ingest (every 3h), enrich (every 3h offset), anomaly (every 3h offset), trend-monitor (every 3h offset), usage-aggregate (daily 01:00), webhook-deliver (every 5min), webhook-cleanup (daily 03:00)
-- [ ] **Custom Domain** — Map `khabri.stallone.co.in` to Cloud Run service via domain mapping or load balancer. GCP auto-provisions managed SSL certificate
+- [ ] **Custom Domain** — Map `khabri.shownomore.com` to Cloud Run service via domain mapping or load balancer. GCP auto-provisions managed SSL certificate
 
 #### 5C. Production Hardening
 
@@ -201,7 +201,7 @@ SIGNAL INGESTION → ENRICHMENT (AI) → ANOMALY DETECTION (Algo) → RANKING (A
 
 - [ ] **Monitor Cron Logs** — Watch first 24h of Cloud Scheduler + Cloud Run logs for failures (GCP Console → Cloud Logging)
 - [ ] **Anomaly Baseline Warmup** — First 12h: baselines accumulate, no anomalies flagged (expected)
-- [ ] **DNS & SSL** — GCP managed SSL auto-provisions. Verify DNS propagation for `khabri.stallone.co.in`
+- [ ] **DNS & SSL** — GCP managed SSL auto-provisions. Verify DNS propagation for `khabri.shownomore.com`
 - [ ] **Backup Strategy** — Neon has point-in-time recovery. Verify it's enabled on the Neon dashboard
 - [ ] **Cold Start Optimization** — Monitor Cloud Run cold start times. Set `--min-instances=1` if latency is unacceptable
 

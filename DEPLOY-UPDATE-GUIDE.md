@@ -35,7 +35,7 @@ gcloud run deploy khabri \
   --memory 1Gi \
   --timeout 300 \
   --set-env-vars "NODE_ENV=production" \
-  --set-env-vars "NEXTAUTH_URL=https://khabri.stallone.co.in" \
+  --set-env-vars "NEXTAUTH_URL=https://khabri.shownomore.com" \
   --set-env-vars "DATABASE_URL=YOUR_NEON_DATABASE_URL" \
   --set-env-vars "GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID" \
   --set-env-vars "GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET" \
@@ -64,7 +64,7 @@ gcloud run deploy khabri \
 gcloud run services describe khabri --region asia-south1 --format="value(status.url)"
 
 # Quick health check
-curl https://khabri.stallone.co.in
+curl https://khabri.shownomore.com
 ```
 
 ---
@@ -100,7 +100,7 @@ gcloud services enable cloudscheduler.googleapis.com
 chmod +x scripts/setup-gcp-cron.sh
 
 # Run it with your app URL and cron secret
-APP_URL=https://khabri.stallone.co.in \
+APP_URL=https://khabri.shownomore.com \
 CRON_SECRET="D2H5NkxRxVQoaAOo5fUNUbglm4kwAaWpGVxbPAmIIKg=" \
 ./scripts/setup-gcp-cron.sh
 ```
@@ -137,7 +137,7 @@ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.servic
 Or test directly with curl:
 
 ```bash
-curl -X POST https://khabri.stallone.co.in/api/cron/ingest \
+curl -X POST https://khabri.shownomore.com/api/cron/ingest \
   -H "Authorization: Bearer D2H5NkxRxVQoaAOo5fUNUbglm4kwAaWpGVxbPAmIIKg="
 ```
 
@@ -147,7 +147,7 @@ You should get a JSON response with `success: true`, `signalsIngested`, and `tre
 
 ## Step 6: Verify Everything Works
 
-1. **Login** at `https://khabri.stallone.co.in` with Google
+1. **Login** at `https://khabri.shownomore.com` with Google
 2. **Dashboard** should show stats (after first cron run)
 3. **Click "Discover Trends"** — should show spinner, then trends appear
 4. **Check cron logs** in GCP Console > Cloud Logging
@@ -174,8 +174,8 @@ You should get a JSON response with `success: true`, `signalsIngested`, and `tre
 
 ### To delete all cron jobs and recreate
 ```bash
-APP_URL=https://khabri.stallone.co.in CRON_SECRET="your-secret" ./scripts/setup-gcp-cron.sh --delete
-APP_URL=https://khabri.stallone.co.in CRON_SECRET="your-secret" ./scripts/setup-gcp-cron.sh
+APP_URL=https://khabri.shownomore.com CRON_SECRET="your-secret" ./scripts/setup-gcp-cron.sh --delete
+APP_URL=https://khabri.shownomore.com CRON_SECRET="your-secret" ./scripts/setup-gcp-cron.sh
 ```
 
 ---
