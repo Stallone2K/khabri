@@ -113,6 +113,9 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground;
   }
@@ -143,4 +146,16 @@
 
 *::-webkit-scrollbar-thumb:hover {
   background-color: hsl(0 0% 30%);
+}
+
+/* Landing page ticker marquee */
+@keyframes landing-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.landing-marquee {
+  animation: landing-marquee 30s linear infinite;
+}
+.landing-marquee:hover {
+  animation-play-state: paused;
 }
