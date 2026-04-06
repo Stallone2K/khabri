@@ -76,18 +76,14 @@ async function fetchFeedsInBatches(feeds: FeedDef[], batchSize: number = 20) {
 // ---------------------------------------------------------------------------
 async function runPipeline(userId: string, userCountryCode: string | null, userCategories: string[]) {
   try {
-    // 1. Load active feeds — only for the user's selected categories
+    // 1. Load ALL active feeds (feed categories don't match user preference categories)
     const feeds = await prisma.feedCatalog.findMany({
-      where: {
-        isActive: true,
-        consecutiveErrors: { lt: 5 },
-        ...(userCategories.length > 0 ? { category: { in: userCategories } } : {}),
-      },
+      where: { isActive: true, consecutiveErrors: { lt: 5 } },
       select: { id: true, url: true, sourceLabel: true, category: true },
     });
 
     if (feeds.length === 0) return;
-    console.log(`[INGEST] Starting pipeline for user ${userId} with ${feeds.length} feeds (categories: ${userCategories.length > 0 ? userCategories.join(", ") : "ALL"})`);
+    console.log(`[INGEST] Starting pipeline for user ${userId} with ${feeds.length} feeds (user wants: ${userCategories.length > 0 ? userCategories.join(", ") : "ALL"})`);
 
     // 2. Fetch feeds (batches of 20)
     const feedResults = await fetchFeedsInBatches(feeds, 20);
@@ -175,9 +171,7 @@ async function runPipeline(userId: string, userCountryCode: string | null, userC
 
     if (signalsToRank.length < 15) {
       console.log("[INGEST] Few new signals. Fetching recent from DB for context...");
-      const categoryFilter = userCategories.length > 0 ? { category: { in: userCategories } } : {};
       const recentDbSignals = await prisma.signal.findMany({
-        where: categoryFilter,
         orderBy: { createdAt: "desc" },
         take: 80,
       });
@@ -197,13 +191,17 @@ async function runPipeline(userId: string, userCountryCode: string | null, userC
       })
       .join("\n");
 
-    // 7. AI ranking (Gemini) — one call with category-filtered signals
+    // 7. AI ranking (Gemini) — one call, scoped to user's preferred categories
+    const categoryInstruction = userCategories.length > 0
+      ? `\n- IMPORTANT: The user is ONLY interested in these categories: ${userCategories.join(", ")}. ALL 30 trends you return MUST belong to one of these categories. Ignore signals that don't fit these categories.`
+      : "";
+
     const finalPrompt = `${buildTrendEnginePrompt(userCountryCode)}
 
 SPECIAL INSTRUCTION:
 - Prioritize items marked with "[HIGH TRAFFIC]" or from "GoogleTrends" if they also have strong narrative potential.
 - These represent verified mass-interest topics.
-- You are analyzing signals from ${successFeedIds.length} feeds across ${new Set(signalsToRank.map((s) => s.category)).size} categories.
+- You are analyzing signals from ${successFeedIds.length} feeds across ${new Set(signalsToRank.map((s) => s.category)).size} categories.${categoryInstruction}
 
 RAW SIGNALS (${signalsToRank.length} total):
 ${signalText}`;

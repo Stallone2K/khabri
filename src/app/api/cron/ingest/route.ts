@@ -264,17 +264,8 @@ export async function POST(req: Request) {
     for (const [catKey, groupUsers] of preferenceGroups) {
       const categories = JSON.parse(catKey) as string[];
 
-      // Filter signals to this group's categories
-      const groupSignals = allSignalsToRank.filter((s) =>
-        categories.includes(s.category)
-      );
-
-      if (groupSignals.length === 0) {
-        console.log(`[CRON-INGEST] No signals for categories [${categories.join(", ")}], skipping`);
-        continue;
-      }
-
-      const signalText = groupSignals
+      // Send ALL signals but instruct Gemini to focus on user's categories
+      const signalText = allSignalsToRank
         .slice(0, 120)
         .map((s) => {
           const prefix =
@@ -283,17 +274,22 @@ export async function POST(req: Request) {
         })
         .join("\n");
 
+      const isAllCategories = categories.length === ALL_CATEGORIES.length;
+      const categoryInstruction = !isAllCategories
+        ? `\n- IMPORTANT: The user is ONLY interested in these categories: ${categories.join(", ")}. ALL 30 trends you return MUST belong to one of these categories. Ignore signals that don't fit these categories.`
+        : "";
+
       const finalPrompt = `${buildTrendEnginePrompt(userCountryCode)}
 
 SPECIAL INSTRUCTION:
 - Prioritize items marked with "[HIGH TRAFFIC]" or from "GoogleTrends" if they also have strong narrative potential.
 - These represent verified mass-interest topics.
-- You are analyzing signals from ${successFeedIds.length} feeds across ${new Set(groupSignals.map((s) => s.category)).size} categories.
+- You are analyzing signals from ${successFeedIds.length} feeds across ${new Set(allSignalsToRank.map((s) => s.category)).size} categories.${categoryInstruction}
 
-RAW SIGNALS (${groupSignals.length} total):
+RAW SIGNALS (${allSignalsToRank.length} total):
 ${signalText}`;
 
-      console.log(`[CRON-INGEST] Ranking ${groupSignals.length} signals for [${categories.join(", ")}] (${groupUsers.length} user(s))`);
+      console.log(`[CRON-INGEST] Ranking ${allSignalsToRank.length} signals for [${categories.join(", ")}] (${groupUsers.length} user(s))`);
 
       const response = await gemini.models.generateContent({
         model: "gemini-2.0-flash",
