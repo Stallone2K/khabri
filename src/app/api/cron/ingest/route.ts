@@ -276,7 +276,7 @@ export async function POST(req: Request) {
 
       const isAllCategories = categories.length === ALL_CATEGORIES.length;
       const categoryInstruction = !isAllCategories
-        ? `\n- IMPORTANT: The user is ONLY interested in these categories: ${categories.join(", ")}. ALL 30 trends you return MUST belong to one of these categories. Ignore signals that don't fit these categories.`
+        ? `\n- IMPORTANT: The user is ONLY interested in these categories: ${categories.join(", ")}. ALL 30 trends you return MUST belong to one of these categories. Ignore signals that don't fit these categories. You MUST return exactly 30 trends — look broadly within these categories. Even if signals seem minor, include them to reach 30.`
         : "";
 
       const finalPrompt = `${buildTrendEnginePrompt(userCountryCode)}
