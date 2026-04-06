@@ -73,26 +73,7 @@ interface Pagination {
 }
 
 // --- CATEGORY STYLING ---
-const CATEGORY_STYLES: Record<string, { color: string; label: string }> = {
-	POLITICS: { color: "text-purple-400 border-purple-400/40", label: "Politics" },
-	GEOPOLITICS: { color: "text-red-400 border-red-400/40", label: "Geopolitics" },
-	TECH: { color: "text-cyan-400 border-cyan-400/40", label: "Tech" },
-	FINANCE: { color: "text-green-400 border-green-400/40", label: "Finance" },
-	CRYPTO: { color: "text-amber-400 border-amber-400/40", label: "Crypto" },
-	SCIENCE: { color: "text-teal-400 border-teal-400/40", label: "Science" },
-	MILITARY: { color: "text-red-500 border-red-500/40", label: "Military" },
-	CLIMATE: { color: "text-emerald-400 border-emerald-400/40", label: "Climate" },
-	HEALTH: { color: "text-pink-400 border-pink-400/40", label: "Health" },
-	SPORTS: { color: "text-orange-400 border-orange-400/40", label: "Sports" },
-	ENTERTAINMENT: { color: "text-violet-400 border-violet-400/40", label: "Entertainment" },
-	BUSINESS: { color: "text-blue-400 border-blue-400/40", label: "Business" },
-	SOCIETY: { color: "text-yellow-400 border-yellow-400/40", label: "Society" },
-};
-
-const getCategoryStyle = (category?: string) => {
-	if (!category) return { color: "text-zinc-500 border-zinc-500/30", label: "General" };
-	return CATEGORY_STYLES[category] || { color: "text-zinc-500 border-zinc-500/30", label: category };
-};
+import { getCategoryStyle } from "@/lib/categories";
 
 interface TrendTableProps {
 	onUpdate?: () => void;

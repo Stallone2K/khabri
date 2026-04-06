@@ -11,10 +11,18 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // When the session status is confirmed and the user is authenticated,
-    // redirect them to the main dashboard.
     if (status === 'authenticated') {
-      router.push('/dashboard');
+      // Check if user has completed onboarding
+      fetch('/api/user/preferences')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.hasCompletedOnboarding) {
+            router.push('/dashboard');
+          } else {
+            router.push('/onboarding');
+          }
+        })
+        .catch(() => router.push('/dashboard'));
     }
   }, [status, router]);
 

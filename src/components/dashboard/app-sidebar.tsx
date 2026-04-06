@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { SettingsDialog } from "./settings-dialog"
 import { useSession, signOut } from 'next-auth/react'
 import {
 	LayoutDashboard,
@@ -95,6 +96,7 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 	const { data: session } = useSession()
 	const user = session?.user
 	const router = useRouter()
+	const [settingsOpen, setSettingsOpen] = React.useState(false)
 
 	const viewSource = (url?: string) => {
 		if (url) window.open(url, '_blank');
@@ -244,7 +246,7 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 		return groups;
 	}, [feeds]);
 
-	return (
+	return (<>
 		<Sidebar className={cn("w-full h-full border-none bg-background", className)} {...props}>
 			{/* HEADER */}
 			<SidebarHeader className="py-6 px-4">
@@ -431,14 +433,6 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 
 			{/* FOOTER - FIXED & ALIGNED */}
 			<SidebarFooter className="border-t p-4 bg-background z-10">
-				{/* Settings Button */}
-				<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9 mb-2 text-muted-foreground hover:text-foreground">
-					<Link href="/dashboard/settings" onClick={onNavigate}>
-						<Settings className="mr-3 h-4 w-4" />
-						<span className="text-sm font-medium">Settings</span>
-					</Link>
-				</Button>
-
 				{/* User Profile Block */}
 				<div className="flex items-center gap-3 p-2">
 					<Avatar className="h-9 w-9 border shrink-0">
@@ -465,7 +459,7 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" side="top" className="w-44 p-1 rounded-md text-[11px]">
-							<DropdownMenuItem className="text-[11px] h-7">
+							<DropdownMenuItem className="text-[11px] h-7" onClick={() => setSettingsOpen(true)}>
 								<Settings className="mr-2 h-3 w-3" /> Settings
 							</DropdownMenuItem>
 							<DropdownMenuItem className="text-[11px] h-7">
@@ -480,6 +474,8 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 				</div>
 			</SidebarFooter>
 		</Sidebar>
+		<SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+	</>
 	)
 }
 

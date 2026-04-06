@@ -6,6 +6,7 @@ import { gemini } from "@/lib/gemini";
 import { buildTrendEnginePrompt } from "@/lib/prompts";
 import { enrichSignals } from "@/lib/ingestion/signal-enricher";
 import { emitEvent } from "@/lib/webhook-events";
+import { ALL_CATEGORIES } from "@/lib/categories";
 
 // ---------------------------------------------------------------------------
 // RSS PARSER — configured with Google Trends custom fields + timeout
@@ -90,9 +91,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Look up ALL active users — cron generates trends for everyone
+  // Look up ALL active users with their category preferences
   const allUsers = await prisma.user.findMany({
-    select: { id: true, countryCode: true },
+    select: { id: true, countryCode: true, preferredCategories: true },
   });
   // Use the first user's country for the AI prompt (geo-classification)
   const userCountryCode = allUsers[0]?.countryCode || null;
@@ -219,14 +220,14 @@ export async function POST(req: Request) {
     // =========================================================================
     // 7. PREPARE SIGNALS FOR AI RANKING
     // =========================================================================
-    let signalsToRank = uniqueNewItems.map((s) => ({
+    let allSignalsToRank = uniqueNewItems.map((s) => ({
       title: s.traffic ? `[Traffic: ${s.traffic}] ${s.title}` : s.title,
       url: s.url,
       source: s.source,
       category: s.category,
     }));
 
-    if (signalsToRank.length < 15) {
+    if (allSignalsToRank.length < 15) {
       console.log(
         "[CRON-INGEST] Few new signals. Fetching recent from DB for context...",
       );
@@ -234,7 +235,7 @@ export async function POST(req: Request) {
         orderBy: { createdAt: "desc" },
         take: 80,
       });
-      signalsToRank = recentDbSignals.map((s) => ({
+      allSignalsToRank = recentDbSignals.map((s) => ({
         title: s.title,
         url: s.url,
         source: s.source,
@@ -242,94 +243,122 @@ export async function POST(req: Request) {
       }));
     }
 
-    const signalText = signalsToRank
-      .slice(0, 120)
-      .map((s) => {
-        const prefix =
-          s.source === "GoogleTrends" ? "**[HIGH TRAFFIC]** " : "";
-        return `- [${s.source}][${s.category}] ${prefix}${s.title} (Link: ${s.url})`;
-      })
-      .join("\n");
-
     // =========================================================================
-    // 8. AI RANKING (Gemini)
+    // 8. GROUP USERS BY CATEGORY PREFERENCES + AI RANKING PER GROUP
     // =========================================================================
-    console.log("[CRON-INGEST] Sending to Gemini for ranking...");
+    const preferenceGroups = new Map<string, typeof allUsers>();
+    for (const user of allUsers) {
+      const cats = user.preferredCategories && user.preferredCategories.length > 0
+        ? [...user.preferredCategories].sort()
+        : [...ALL_CATEGORIES];
+      const key = JSON.stringify(cats);
+      if (!preferenceGroups.has(key)) preferenceGroups.set(key, []);
+      preferenceGroups.get(key)!.push(user);
+    }
 
-    const finalPrompt = `${buildTrendEnginePrompt(userCountryCode)}
+    console.log(`[CRON-INGEST] ${preferenceGroups.size} unique category preference group(s) to rank`);
+
+    let totalTrendsGenerated = 0;
+    let allRankedTrends: any[] = [];
+
+    for (const [catKey, groupUsers] of preferenceGroups) {
+      const categories = JSON.parse(catKey) as string[];
+
+      // Filter signals to this group's categories
+      const groupSignals = allSignalsToRank.filter((s) =>
+        categories.includes(s.category)
+      );
+
+      if (groupSignals.length === 0) {
+        console.log(`[CRON-INGEST] No signals for categories [${categories.join(", ")}], skipping`);
+        continue;
+      }
+
+      const signalText = groupSignals
+        .slice(0, 120)
+        .map((s) => {
+          const prefix =
+            s.source === "GoogleTrends" ? "**[HIGH TRAFFIC]** " : "";
+          return `- [${s.source}][${s.category}] ${prefix}${s.title} (Link: ${s.url})`;
+        })
+        .join("\n");
+
+      const finalPrompt = `${buildTrendEnginePrompt(userCountryCode)}
 
 SPECIAL INSTRUCTION:
 - Prioritize items marked with "[HIGH TRAFFIC]" or from "GoogleTrends" if they also have strong narrative potential.
 - These represent verified mass-interest topics.
-- You are analyzing signals from ${successFeedIds.length} feeds across ${new Set(signalsToRank.map((s) => s.category)).size} categories.
+- You are analyzing signals from ${successFeedIds.length} feeds across ${new Set(groupSignals.map((s) => s.category)).size} categories.
 
-RAW SIGNALS (${signalsToRank.length} total):
+RAW SIGNALS (${groupSignals.length} total):
 ${signalText}`;
 
-    const response = await gemini.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.2,
-      },
-    });
+      console.log(`[CRON-INGEST] Ranking ${groupSignals.length} signals for [${categories.join(", ")}] (${groupUsers.length} user(s))`);
 
-    const responseText =
-      response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-    const jsonString = responseText.replace(/```json|```/g, "").trim();
-
-    let rankedTrends = [];
-    try {
-      rankedTrends = JSON.parse(jsonString);
-    } catch (e) {
-      console.error("[CRON-INGEST] Failed to parse Gemini JSON:", responseText);
-      return NextResponse.json(
-        { error: "AI Parsing Failed", raw: responseText },
-        { status: 500 },
-      );
-    }
-
-    // =========================================================================
-    // 9. SAVE RANKED TRENDS — for ALL users
-    // =========================================================================
-    if (Array.isArray(rankedTrends) && rankedTrends.length > 0 && allUsers.length > 0) {
-      const trendData = rankedTrends.map((trend: any) => ({
-        rank: trend.rank || 99,
-        topic: trend.topic || "Unknown",
-        score: trend.score || 0,
-        reason: trend.reason || "",
-        category: trend.category || null,
-        region: trend.region || null,
-        originalUrl: trend.original_url || null,
-      }));
-
-      // Create trends for every user
-      await prisma.rankedTrend.createMany({
-        data: allUsers.flatMap((user) =>
-          trendData.map((trend) => ({ ...trend, userId: user.id })),
-        ),
+      const response = await gemini.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.2,
+        },
       });
 
-      // Emit webhook events per user
-      for (const user of allUsers) {
-        emitEvent("trend.new", {
-          count: rankedTrends.length,
-          topTrends: rankedTrends.slice(0, 5).map((t: any) => ({
-            topic: t.topic,
-            score: t.score,
-            category: t.category,
-          })),
-        }, user.id);
+      const responseText =
+        response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+      const jsonString = responseText.replace(/```json|```/g, "").trim();
 
-        const spikes = rankedTrends.filter((t: any) => (t.score || 0) >= 90);
-        for (const spike of spikes) {
-          emitEvent("trend.spike", {
-            topic: spike.topic,
-            score: spike.score,
-            category: spike.category,
-            reason: spike.reason,
+      let rankedTrends: any[] = [];
+      try {
+        rankedTrends = JSON.parse(jsonString);
+      } catch (e) {
+        console.error(`[CRON-INGEST] Failed to parse Gemini JSON for [${categories.join(", ")}]:`, responseText);
+        continue;
+      }
+
+      // =========================================================================
+      // 9. SAVE RANKED TRENDS — for users in this preference group
+      // =========================================================================
+      if (Array.isArray(rankedTrends) && rankedTrends.length > 0) {
+        const trendData = rankedTrends.map((trend: any) => ({
+          rank: trend.rank || 99,
+          topic: trend.topic || "Unknown",
+          score: trend.score || 0,
+          reason: trend.reason || "",
+          category: trend.category || null,
+          region: trend.region || null,
+          originalUrl: trend.original_url || null,
+        }));
+
+        await prisma.rankedTrend.createMany({
+          data: groupUsers.flatMap((user) =>
+            trendData.map((trend) => ({ ...trend, userId: user.id })),
+          ),
+        });
+
+        totalTrendsGenerated += rankedTrends.length;
+        allRankedTrends.push(...rankedTrends);
+
+        // Emit webhook events for users in this group
+        for (const user of groupUsers) {
+          emitEvent("trend.new", {
+            count: rankedTrends.length,
+            topTrends: rankedTrends.slice(0, 5).map((t: any) => ({
+              topic: t.topic,
+              score: t.score,
+              category: t.category,
+            })),
           }, user.id);
+
+          const spikes = rankedTrends.filter((t: any) => (t.score || 0) >= 90);
+          for (const spike of spikes) {
+            emitEvent("trend.spike", {
+              topic: spike.topic,
+              score: spike.score,
+              category: spike.category,
+              reason: spike.reason,
+            }, user.id);
+          }
         }
       }
     }
@@ -346,7 +375,7 @@ ${signalText}`;
     );
 
     console.log(
-      `[CRON-INGEST] Pipeline complete: ${newSignalsCount} signals, ${rankedTrends.length} trends, ${enrichStats.enrichedCount} enriched`,
+      `[CRON-INGEST] Pipeline complete: ${newSignalsCount} signals, ${totalTrendsGenerated} trends across ${preferenceGroups.size} group(s), ${enrichStats.enrichedCount} enriched`,
     );
 
     return NextResponse.json({
@@ -354,8 +383,9 @@ ${signalText}`;
       feedsScanned: successFeedIds.length,
       feedsFailed: failedFeedIds.length,
       signalsIngested: newSignalsCount,
-      trendsGenerated: rankedTrends.length,
-      trends: rankedTrends,
+      trendsGenerated: totalTrendsGenerated,
+      preferenceGroups: preferenceGroups.size,
+      trends: allRankedTrends,
       enrichment: {
         enrichedCount: enrichStats.enrichedCount,
         entitiesExtracted: enrichStats.entitiesExtracted,
