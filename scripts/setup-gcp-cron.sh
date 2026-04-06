@@ -74,7 +74,7 @@ create_jobs() {
         --time-zone="$TIMEZONE" \
         --uri="$url" \
         --http-method="$method" \
-        --headers="Authorization=Bearer ${CRON_SECRET}" \
+        --headers "Authorization=Bearer ${CRON_SECRET}" \
         --attempt-deadline="300s" \
         --quiet
     else
@@ -86,7 +86,7 @@ create_jobs() {
         --time-zone="$TIMEZONE" \
         --uri="$url" \
         --http-method="$method" \
-        --headers="Authorization=Bearer ${CRON_SECRET}" \
+        --headers "Authorization=Bearer ${CRON_SECRET}" \
         --attempt-deadline="300s" \
         --quiet
     fi
