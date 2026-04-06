@@ -6,6 +6,7 @@ import { getAuthenticatedUserId } from "@/lib/api-auth";
 import { gemini } from "@/lib/gemini";
 import { buildTrendEnginePrompt } from "@/lib/prompts";
 import { enrichSignals } from "@/lib/ingestion/signal-enricher";
+import { ALL_CATEGORIES } from "@/lib/categories";
 
 // ---------------------------------------------------------------------------
 // RSS PARSER
@@ -74,7 +75,7 @@ async function fetchFeedsInBatches(feeds: FeedDef[], batchSize: number = 20) {
 // ---------------------------------------------------------------------------
 // BACKGROUND PIPELINE — fetches all feeds, then ranks everything at once
 // ---------------------------------------------------------------------------
-async function runPipeline(userId: string, userCountryCode: string | null) {
+async function runPipeline(userCountryCode: string | null) {
   try {
     // 1. Load active feeds
     const feeds = await prisma.feedCatalog.findMany({
@@ -162,20 +163,20 @@ async function runPipeline(userId: string, userCountryCode: string | null) {
     }
 
     // 6. Prepare signals for AI ranking
-    let signalsToRank = uniqueNewItems.map((s) => ({
+    let allSignalsToRank = uniqueNewItems.map((s) => ({
       title: s.traffic ? `[Traffic: ${s.traffic}] ${s.title}` : s.title,
       url: s.url,
       source: s.source,
       category: s.category,
     }));
 
-    if (signalsToRank.length < 15) {
+    if (allSignalsToRank.length < 15) {
       console.log("[INGEST] Few new signals. Fetching recent from DB for context...");
       const recentDbSignals = await prisma.signal.findMany({
         orderBy: { createdAt: "desc" },
         take: 80,
       });
-      signalsToRank = recentDbSignals.map((s) => ({
+      allSignalsToRank = recentDbSignals.map((s) => ({
         title: s.title,
         url: s.url,
         source: s.source,
@@ -183,62 +184,99 @@ async function runPipeline(userId: string, userCountryCode: string | null) {
       }));
     }
 
-    const signalText = signalsToRank
-      .slice(0, 120)
-      .map((s) => {
-        const prefix = s.source === "GoogleTrends" ? "**[HIGH TRAFFIC]** " : "";
-        return `- [${s.source}][${s.category}] ${prefix}${s.title} (Link: ${s.url})`;
-      })
-      .join("\n");
+    // 7. Group users by category preferences + AI ranking per group
+    const allUsers = await prisma.user.findMany({
+      select: { id: true, countryCode: true, preferredCategories: true },
+    });
 
-    // 7. AI ranking (Gemini) — one call with all signals
-    const finalPrompt = `${buildTrendEnginePrompt(userCountryCode)}
+    const preferenceGroups = new Map<string, typeof allUsers>();
+    for (const user of allUsers) {
+      const cats = user.preferredCategories && user.preferredCategories.length > 0
+        ? [...user.preferredCategories].sort()
+        : [...ALL_CATEGORIES];
+      const key = JSON.stringify(cats);
+      if (!preferenceGroups.has(key)) preferenceGroups.set(key, []);
+      preferenceGroups.get(key)!.push(user);
+    }
+
+    console.log(`[INGEST] ${preferenceGroups.size} unique category preference group(s) to rank`);
+
+    let totalTrendsGenerated = 0;
+
+    for (const [catKey, groupUsers] of preferenceGroups) {
+      const categories = JSON.parse(catKey) as string[];
+
+      const groupSignals = allSignalsToRank.filter((s) =>
+        categories.includes(s.category)
+      );
+
+      if (groupSignals.length === 0) {
+        console.log(`[INGEST] No signals for categories [${categories.join(", ")}], skipping`);
+        continue;
+      }
+
+      const signalText = groupSignals
+        .slice(0, 120)
+        .map((s) => {
+          const prefix = s.source === "GoogleTrends" ? "**[HIGH TRAFFIC]** " : "";
+          return `- [${s.source}][${s.category}] ${prefix}${s.title} (Link: ${s.url})`;
+        })
+        .join("\n");
+
+      const finalPrompt = `${buildTrendEnginePrompt(userCountryCode)}
 
 SPECIAL INSTRUCTION:
 - Prioritize items marked with "[HIGH TRAFFIC]" or from "GoogleTrends" if they also have strong narrative potential.
 - These represent verified mass-interest topics.
-- You are analyzing signals from ${successFeedIds.length} feeds across ${new Set(signalsToRank.map((s) => s.category)).size} categories.
+- You are analyzing signals from ${successFeedIds.length} feeds across ${new Set(groupSignals.map((s) => s.category)).size} categories.
 
-RAW SIGNALS (${signalsToRank.length} total):
+RAW SIGNALS (${groupSignals.length} total):
 ${signalText}`;
 
-    const response = await gemini.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-      config: { responseMimeType: "application/json", temperature: 0.2 },
-    });
+      console.log(`[INGEST] Ranking ${groupSignals.length} signals for [${categories.join(", ")}] (${groupUsers.length} user(s))`);
 
-    const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-    const jsonString = responseText.replace(/```json|```/g, "").trim();
-
-    let rankedTrends: any[] = [];
-    try {
-      rankedTrends = JSON.parse(jsonString);
-    } catch {
-      console.error("[INGEST] Failed to parse Gemini JSON:", responseText);
-      return;
-    }
-
-    // 8. Save ranked trends
-    if (Array.isArray(rankedTrends) && rankedTrends.length > 0) {
-      await prisma.rankedTrend.createMany({
-        data: rankedTrends.map((trend: any) => ({
-          rank: trend.rank || 99,
-          topic: trend.topic || "Unknown",
-          score: trend.score || 0,
-          reason: trend.reason || "",
-          category: trend.category || null,
-          region: trend.region || null,
-          originalUrl: trend.original_url || null,
-          userId,
-        })),
+      const response = await gemini.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+        config: { responseMimeType: "application/json", temperature: 0.2 },
       });
+
+      const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+      const jsonString = responseText.replace(/```json|```/g, "").trim();
+
+      let rankedTrends: any[] = [];
+      try {
+        rankedTrends = JSON.parse(jsonString);
+      } catch {
+        console.error(`[INGEST] Failed to parse Gemini JSON for [${categories.join(", ")}]:`, responseText);
+        continue;
+      }
+
+      // 8. Save ranked trends for users in this preference group
+      if (Array.isArray(rankedTrends) && rankedTrends.length > 0) {
+        await prisma.rankedTrend.createMany({
+          data: groupUsers.flatMap((user) =>
+            rankedTrends.map((trend: any) => ({
+              rank: trend.rank || 99,
+              topic: trend.topic || "Unknown",
+              score: trend.score || 0,
+              reason: trend.reason || "",
+              category: trend.category || null,
+              region: trend.region || null,
+              originalUrl: trend.original_url || null,
+              userId: user.id,
+            })),
+          ),
+        });
+
+        totalTrendsGenerated += rankedTrends.length;
+      }
     }
 
     // 9. Enrich
     const enrichStats = await enrichSignals(100);
     console.log(
-      `[INGEST] Pipeline complete: ${newSignalsCount} signals, ${rankedTrends.length} trends, ${enrichStats.enrichedCount} enriched`,
+      `[INGEST] Pipeline complete: ${newSignalsCount} signals, ${totalTrendsGenerated} trends across ${preferenceGroups.size} group(s), ${enrichStats.enrichedCount} enriched`,
     );
   } catch (error: any) {
     console.error("[INGEST] Background pipeline error:", error);
@@ -265,7 +303,7 @@ export async function POST() {
 
   // Pipeline runs AFTER response is sent
   after(async () => {
-    await runPipeline(userId, userCountryCode);
+    await runPipeline(userCountryCode);
   });
 
   return NextResponse.json({ started: true });
