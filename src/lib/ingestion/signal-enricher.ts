@@ -9,6 +9,12 @@ import type { Signal } from "@prisma/client";
 const BATCH_SIZE = 20;
 const MODEL = "gemini-2.0-flash";
 const TEMPERATURE = 0.1;
+const INTER_BATCH_DELAY_MS = 500;
+
+// Process-level mutex: prevent concurrent enrichment runs from hammering Gemini.
+// Why: /api/cron/enrich, /api/cron/ingest, and /api/ingest all call enrichSignals.
+// If two overlap, they grab the same un-enriched rows and double the Gemini RPM.
+let enrichmentInFlight: Promise<EnrichmentStats> | null = null;
 
 // ---------------------------------------------------------------------------
 // TYPES — Gemini response shape
@@ -174,9 +180,26 @@ async function saveBatchResults(
  * Processes in batches of 20, continues on per-batch failure.
  *
  * Called by: /api/cron/enrich (every 15 min)
+ *
+ * Concurrent callers share a single in-flight run via the `enrichmentInFlight` mutex.
+ * Why: /api/cron/enrich, /api/cron/ingest, and /api/ingest all invoke this;
+ * without the mutex overlapping callers grab the same rows and double Gemini RPM.
  */
 export async function enrichSignals(
   maxSignals: number = 100,
+): Promise<EnrichmentStats> {
+  if (enrichmentInFlight) {
+    console.log("[ENRICH] Run already in progress — joining existing run");
+    return enrichmentInFlight;
+  }
+  enrichmentInFlight = runEnrichment(maxSignals).finally(() => {
+    enrichmentInFlight = null;
+  });
+  return enrichmentInFlight;
+}
+
+async function runEnrichment(
+  maxSignals: number,
 ): Promise<EnrichmentStats> {
   const stats: EnrichmentStats = {
     enrichedCount: 0,
@@ -231,6 +254,10 @@ export async function enrichSignals(
       console.error(`[ENRICH] ${errorMsg}`);
       stats.errors.push(errorMsg);
       // Continue with next batch — don't let one failure kill the run
+    }
+
+    if (batchNum < totalBatches) {
+      await new Promise((r) => setTimeout(r, INTER_BATCH_DELAY_MS));
     }
   }
 
