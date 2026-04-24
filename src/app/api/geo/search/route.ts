@@ -162,7 +162,7 @@ export async function GET(req: Request) {
         targetType,
         headlines,
       );
-      briefing = await generateText("gemini-2.0-flash", prompt, 0.3);
+      briefing = await generateText("gemini-2.5-flash", prompt, 0.3);
     }
 
     const response = NextResponse.json({

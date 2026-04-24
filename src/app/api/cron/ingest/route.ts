@@ -292,7 +292,7 @@ ${signalText}`;
       console.log(`[CRON-INGEST] Ranking ${allSignalsToRank.length} signals for [${categories.join(", ")}] (${groupUsers.length} user(s))`);
 
       const response = await gemini.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
         config: {
           responseMimeType: "application/json",

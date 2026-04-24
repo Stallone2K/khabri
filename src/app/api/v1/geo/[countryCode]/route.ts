@@ -85,7 +85,7 @@ export async function GET(
     if (signals.length >= 3) {
       const headlines = signals.slice(0, 30).map((s) => s.title);
       const prompt = buildGeoBriefingPrompt(countryName, "COUNTRY", headlines);
-      briefing = await generateText("gemini-2.0-flash", prompt, 0.3);
+      briefing = await generateText("gemini-2.5-flash", prompt, 0.3);
     }
 
     logV1Usage(auth, req, 200, startTime);

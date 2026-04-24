@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { generateJSON } from "@/lib/gemini";
 import { buildSubNarrativePrompt } from "@/lib/prompts";
 
-const MODEL = "gemini-2.0-flash";
+const MODEL = "gemini-2.5-flash";
 
 interface SubNarrative {
   title: string;

@@ -187,7 +187,7 @@ export async function POST(req: Request) {
 
     // Final Call to format everything nicely
     const finalResponse = await gemini.models.generateContent({
-      model: "gemini-2.0-flash", // Fast synthesizer
+      model: "gemini-2.5-flash", // Fast synthesizer
       contents: [{ role: "user", parts: [{ text: synthesisPrompt }] }],
       config: { temperature: 0.1 }, // Strict formatting
     });
