@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { generateText } from "@/lib/gemini";
 import { buildArcPhasePrompt } from "@/lib/prompts";
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-flash-latest";
 
 export interface ArcDataPoint {
   date: string;

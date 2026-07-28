@@ -7,7 +7,7 @@ import type { Signal } from "@prisma/client";
 // CONFIG
 // ---------------------------------------------------------------------------
 const BATCH_SIZE = 20;
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-flash-latest";
 const TEMPERATURE = 0.1;
 const INTER_BATCH_DELAY_MS = 500;
 

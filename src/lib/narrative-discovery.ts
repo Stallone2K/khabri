@@ -86,7 +86,7 @@ export async function discoverNarratives(
   // 3. Ask AI to discover narratives
   const prompt = buildDiscoveryPrompt(projectTitle, signalHeadlines);
   const narratives = await generateJSON<NarrativeAngle[]>(
-    "gemini-2.5-flash",
+    "gemini-flash-latest",
     prompt,
     0.4,
   );

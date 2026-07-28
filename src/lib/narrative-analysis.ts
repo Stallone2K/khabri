@@ -1,7 +1,7 @@
 import { generateJSON } from "@/lib/gemini";
 import { buildSignalSignificancePrompt } from "@/lib/prompts";
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-flash-latest";
 
 interface SignalInput {
   id: string;

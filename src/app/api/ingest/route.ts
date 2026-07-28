@@ -209,7 +209,7 @@ ${signalText}`;
     console.log(`[INGEST] Sending ${signalsToRank.length} signals to Gemini for ranking`);
 
     const response = await gemini.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-flash-latest",
       contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
       config: { responseMimeType: "application/json", temperature: 0.2 },
     });
