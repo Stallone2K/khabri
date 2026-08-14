@@ -40,13 +40,17 @@ export async function GET() {
       take: 5,
       select: { label: true, severity: true, zScore: true, currentValue: true },
     }),
-    // Top developments: newest ranked batch (any user's — global view)
+    // Top developments: newest ranked batch, HARD NEWS ONLY — a situation
+    // room has an editorial line: no entertainment/sports/celebrity fluff.
+    // (Everything is still browsable on /dashboard/signals.)
     prisma.$queryRaw<
       { topic: string; score: number; category: string | null; region: string | null }[]
     >`
       SELECT "topic", "score", "category", "region"
       FROM "RankedTrend"
       WHERE "createdAt" = (SELECT MAX("createdAt") FROM "RankedTrend")
+        AND COALESCE("category", '') NOT IN ('ENTERTAINMENT', 'SPORTS')
+        AND "score" >= 55
       ORDER BY "rank" ASC
       LIMIT 6
     `,
@@ -71,13 +75,17 @@ export async function GET() {
       ORDER BY counts.count24 DESC
       LIMIT 7
     `,
-    // Trending entities: most-mentioned people/orgs in 24h
+    // Trending entities: most-mentioned people/orgs in 24h, hard-news
+    // sources only (viral-trend and entertainment feeds excluded)
     prisma.$queryRaw<{ name: string; type: string; count: bigint }[]>`
       SELECT e."name", e."type", COUNT(DISTINCT e."signalId") AS count
       FROM "SignalEntity" e
       JOIN "Signal" s ON s."id" = e."signalId"
       WHERE s."createdAt" >= ${h24}
         AND e."type" IN ('PERSON', 'ORG', 'COMPANY', 'COUNTRY')
+        AND s."source" NOT IN ('GoogleTrends', 'RedditRising')
+        AND COALESCE(s."category", '') NOT ILIKE '%entertainment%'
+        AND COALESCE(s."category", '') NOT ILIKE '%sport%'
       GROUP BY e."name", e."type"
       HAVING COUNT(DISTINCT e."signalId") > 1
       ORDER BY count DESC
@@ -89,8 +97,15 @@ export async function GET() {
       WHERE "createdAt" >= ${h24} AND "sentiment" IS NOT NULL
       GROUP BY "sentiment"
     `,
-    // The wire: latest raw headlines
+    // The wire: latest raw headlines — hard-news sources only
     prisma.signal.findMany({
+      where: {
+        source: { notIn: ["GoogleTrends", "RedditRising"] },
+        NOT: [
+          { category: { contains: "entertainment", mode: "insensitive" } },
+          { category: { contains: "sport", mode: "insensitive" } },
+        ],
+      },
       orderBy: { createdAt: "desc" },
       take: 8,
       select: { id: true, title: true, source: true, url: true, createdAt: true },
