@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "seed:feeds": "npx tsx prisma/seed-feeds.ts",
-    "seed:locations": "npx tsx prisma/seed-locations.ts"
+    "seed:locations": "npx tsx prisma/seed-locations.ts",
+    "seed:geonames": "npx tsx prisma/seed-geonames.ts",
+    "geo:backfill": "npx tsx scripts/backfill-geo.ts"
   },
   "dependencies": {
     "@google/genai": "^1.40.0",
