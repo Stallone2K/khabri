@@ -81,7 +81,7 @@ export function AssetDetailDialog({
         {/* Price */}
         <div className="flex items-baseline gap-3">
           <span className="text-3xl font-bold font-mono">
-            $
+            {asset.currencyPrefix ?? "$"}
             {asset.price.toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: asset.price < 1 ? 6 : 2,

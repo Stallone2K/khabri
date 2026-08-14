@@ -47,6 +47,7 @@ import {
 	DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
+import { PlanBadge } from "@/components/subscription/plan-badge"
 import { useRouter } from "next/navigation"
 
 // --- TYPES ---
@@ -282,7 +283,7 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 						</Link>
 					</Button>
 					{/* PROJECTS COLLAPSIBLE */}
-					<Collapsible className="w-full" defaultOpen>
+					<Collapsible className="w-full" defaultOpen id="sidebar-projects">
 						<CollapsibleTrigger asChild>
 							<Button variant="ghost" className="w-full justify-start hover:bg-accent/50 h-9 group">
 								<Tag className="mr-3 h-4 w-4" />
@@ -359,53 +360,13 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 						</CollapsibleContent>
 					</Collapsible>
 
-					{/* FEEDS COLLAPSIBLE */}
-					<Collapsible className="w-full">
-						<CollapsibleTrigger asChild>
-							<Button variant="ghost" className="w-full justify-start hover:bg-accent/50 h-9 group">
-								<Newspaper className="mr-3 h-4 w-4" />
-								<span className="text-sm font-medium flex-1 text-left">Feeds</span>
-								<ChevronDown className="h-4 w-4 opacity-50 group-data-[state=open]:rotate-180 transition-transform" />
-							</Button>
-						</CollapsibleTrigger>
-						<CollapsibleContent className="space-y-1 pt-1 ml-4 border-l border-muted">
-							{loadingFeeds ? (
-								<div className="flex items-center px-4 py-2 text-xs text-muted-foreground"><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Loading...</div>
-							) : feeds.length === 0 ? (
-								<div className="px-4 py-2 text-xs text-muted-foreground">No Feeds Added.</div>
-							) : (
-								Object.entries(groupedFeeds).map(([domain, items]) => {
-									const totalUnread = items.reduce((acc, curr) => acc + curr.unreadCount, 0);
-									return (
-										<Collapsible key={domain} className="w-full">
-											<CollapsibleTrigger asChild>
-												<Button variant="ghost" className="w-full justify-start h-9 text-muted-foreground hover:text-foreground group/sub">
-													<Globe className="mr-2 h-3 w-3 opacity-70" />
-													<span className="text-xs truncate flex-1 text-left">{domain}</span>
-													<div className="flex items-center gap-2">
-														{totalUnread > 0 && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full font-bold min-w-[20px] text-center">{totalUnread}</span>}
-														<ChevronRight className="h-3 w-3 opacity-50 transition-transform group-data-[state=open]/sub:rotate-90" />
-													</div>
-												</Button>
-											</CollapsibleTrigger>
-											<CollapsibleContent className="space-y-0.5 pt-0.5 ml-2">
-												{items.map(source => (
-													<div key={source.id} className="group/item relative flex items-center">
-														<Button variant="ghost" asChild className="w-full justify-start h-8 text-muted-foreground hover:text-foreground pl-6 pr-8">
-															<Link href={`/dashboard/feeds/${source.id}`} onClick={onNavigate} className="flex justify-between w-full">
-																<span className="text-[11px] truncate max-w-[110px]" title={source.name}>{source.name}</span>
-																{source.unreadCount > 0 && <span className="text-[9px] text-muted-foreground font-medium">{source.unreadCount}</span>}
-															</Link>
-														</Button>
-													</div>
-												))}
-											</CollapsibleContent>
-										</Collapsible>
-									);
-								})
-							)}
-						</CollapsibleContent>
-					</Collapsible>
+					{/* FEEDS */}
+					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
+						<Link href="/dashboard/feeds" onClick={onNavigate}>
+							<Newspaper className="mr-3 h-4 w-4" />
+							<span className="text-sm font-medium">Feeds</span>
+						</Link>
+					</Button>
 				</div>
 
 				{/* USAGE & MARKET */}
@@ -444,9 +405,12 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 					</Avatar>
 
 					<div className="flex flex-col flex-1 overflow-hidden min-w-0">
-						<span className="text-xs font-semibold truncate text-foreground">
-							{user?.name ?? "User"}
-						</span>
+						<div className="flex items-center gap-1.5">
+							<span className="text-xs font-semibold truncate text-foreground">
+								{user?.name ?? "User"}
+							</span>
+							<PlanBadge planSlug={(user as { planSlug?: string } | undefined)?.planSlug || "free"} />
+						</div>
 						<span className="text-[10px] text-muted-foreground truncate">
 							{user?.email ?? "Sign in"}
 						</span>
@@ -466,7 +430,7 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 								<Megaphone className="mr-2 h-3 w-3" /> Feedback
 							</DropdownMenuItem>
 							<DropdownMenuSeparator className="my-1" />
-							<DropdownMenuItem className="text-red-500 focus:text-red-500 text-[11px] h-7" onClick={() => signOut()}>
+							<DropdownMenuItem className="text-red-500 focus:text-red-500 text-[11px] h-7" onClick={() => signOut({ callbackUrl: "/" })}>
 								<LifeBuoy className="mr-2 h-3 w-3 text-red-500" /> Sign Out
 							</DropdownMenuItem>
 						</DropdownMenuContent>

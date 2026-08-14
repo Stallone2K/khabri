@@ -2,6 +2,7 @@ import { DefaultSession, NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma"; // ✅ IMPORT SHARED INSTANCE
+import { grantCredits, SIGNUP_GRANT } from "@/lib/credits";
 
 declare module "next-auth" {
   interface Session {
@@ -22,6 +23,16 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
+  events: {
+    async createUser({ user }) {
+      if (!user.id) return;
+      try {
+        await grantCredits(user.id, SIGNUP_GRANT, { reason: "signup_grant" });
+      } catch (err) {
+        console.error("[AUTH] Signup credit grant failed:", err);
+      }
+    },
+  },
   callbacks: {
     session: ({ session, user }) => ({
       ...session,

@@ -7,6 +7,7 @@ import {
   getMarketConfig,
   getGlobalIndices,
   getAllStockSymbols,
+  getCurrencySymbol,
   CRYPTO_WATCHLIST,
 } from "@/lib/market-config";
 import { MarketSummaryCards } from "@/components/market/market-summary-cards";
@@ -115,6 +116,7 @@ export default function MarketPage() {
           changePercent,
           sparkline: hist,
           type: "forex" as const,
+          currencyPrefix: getCurrencySymbol(currency),
           extra: {
             inverseRate: rate !== 0 ? 1 / rate : 0,
           },
@@ -162,6 +164,7 @@ export default function MarketPage() {
         changePercent: idx.changePercent,
         sparkline: idx.sparkline ?? [],
         type: "stock" as const,
+        currencyPrefix: getCurrencySymbol(idx.currency ?? "USD"),
         extra: {
           change: idx.change,
           currency: idx.currency,

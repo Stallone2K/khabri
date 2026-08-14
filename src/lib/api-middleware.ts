@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashApiKey, type ApiScope } from "@/lib/api-keys";
+import {
+  debitCredits,
+  CREDIT_COSTS,
+  insufficientCreditsBody,
+} from "@/lib/credits";
 
 export interface ApiAuthResult {
   success: true;
@@ -112,9 +117,28 @@ export async function authenticateApiKey(
     };
   }
 
-  // 6. Rate limiting disabled — will be re-added with pricing tiers (see BACKLOG.md)
+  // 6. Credit gate — API access requires a positive balance unless the user
+  //    is on the unlimited plan. 1 credit is debited per N requests below.
+  const owner = await prisma.user.findUnique({
+    where: { id: apiKey.userId },
+    select: {
+      creditBalance: true,
+      subscription: {
+        select: { status: true, plan: { select: { slug: true } } },
+      },
+    },
+  });
+  const isUnlimitedPlan =
+    owner?.subscription?.plan.slug === "unlimited" &&
+    owner.subscription.status !== "EXPIRED";
+  if (!isUnlimitedPlan && (owner?.creditBalance ?? 0) <= 0) {
+    return {
+      success: false,
+      response: NextResponse.json(insufficientCreditsBody(), { status: 402 }),
+    };
+  }
 
-  // 7. Sync usage to DB periodically
+  // 7. Sync usage to DB; every Nth request costs 1 credit (fire-and-forget)
   prisma.apiKey
     .update({
       where: { id: apiKey.id },
@@ -122,6 +146,19 @@ export async function authenticateApiKey(
         lastUsedAt: new Date(),
         requestCount: { increment: 1 },
       },
+      select: { requestCount: true },
+    })
+    .then((updated) => {
+      if (
+        !isUnlimitedPlan &&
+        updated.requestCount % CREDIT_COSTS.API_CALLS_PER_CREDIT === 0
+      ) {
+        return debitCredits(apiKey.userId, 1, {
+          reason: "api_usage",
+          refType: "ApiKey",
+          refId: apiKey.id,
+        });
+      }
     })
     .catch((err: unknown) =>
       console.error("[API-AUTH] Failed to sync usage:", err),

@@ -136,13 +136,13 @@ export async function POST(req: Request) {
     const synthesisPrompt = `
       You are the Chief Editor.
       I have gathered raw research notes from a deep-dive investigation.
-      
+
       YOUR TASK:
       Consolidate the notes below into ONE single, perfectly formatted Master Intelligence Dossier.
       Ignore conversational filler. Focus on density and structure.
-      
+
       STRICT OUTPUT FORMAT (Markdown):
-      
+
       # {Project Title}
 
       ## 1. STRATEGIC OVERVIEW

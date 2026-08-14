@@ -1,7 +1,10 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Button } from '../ui/button';
+import { PricingCards } from '../subscription/pricing-cards';
+import type { PlanInfo } from '@/lib/plans';
 import {
 	ArrowRight,
 	ChevronDown,
@@ -33,7 +36,7 @@ function Navbar() {
 					<span className="text-xl font-bold tracking-tight text-white">Khabri</span>
 				</div>
 				<div className="hidden items-center gap-5 md:flex">
-					<a href="#pricing" className="text-[13px] text-white/80 transition hover:text-white">Pricing</a>
+					<a href="/pricing" className="text-[13px] text-white/80 transition hover:text-white">Pricing</a>
 					<a href="#features" className="text-[13px] text-white/80 transition hover:text-white">Features</a>
 					<a href="#faq" className="text-[13px] text-white/80 transition hover:text-white">FAQ</a>
 				</div>
@@ -43,7 +46,7 @@ function Navbar() {
 			</div>
 			{mobileOpen && (
 				<div className="md:hidden border-t border-white/5 bg-black/95 backdrop-blur-sm px-6 py-4 flex flex-col gap-4">
-					<a href="#pricing" onClick={() => setMobileOpen(false)} className="text-sm text-white/80 transition hover:text-white">Pricing</a>
+					<a href="/pricing" onClick={() => setMobileOpen(false)} className="text-sm text-white/80 transition hover:text-white">Pricing</a>
 					<a href="#features" onClick={() => setMobileOpen(false)} className="text-sm text-white/80 transition hover:text-white">Features</a>
 					<a href="#faq" onClick={() => setMobileOpen(false)} className="text-sm text-white/80 transition hover:text-white">FAQ</a>
 				</div>
@@ -696,6 +699,53 @@ function Footer() {
 	);
 }
 
+/* ───────────────────────── Pricing ───────────────────────── */
+function PricingSection() {
+	const { status } = useSession();
+	const router = useRouter();
+
+	function handleSelectPlan(plan: PlanInfo) {
+		if (plan.contactSales) {
+			window.location.href =
+				'mailto:dev@shownomore.com?subject=Khabri%20Enterprise%20Plan';
+			return;
+		}
+		if (status === 'unauthenticated') {
+			signIn('google', { callbackUrl: '/pricing' });
+			return;
+		}
+		if (plan.slug === 'free') {
+			router.push('/dashboard');
+			return;
+		}
+		router.push(`/checkout?plan=${plan.slug}&yearly=0`);
+	}
+
+	return (
+		<section id="pricing" className="relative px-6 py-16 sm:py-32">
+			<div className="mx-auto max-w-7xl">
+				<div className="mb-12 text-center">
+					<h2 className="font-[family-name:var(--font-forma)] text-3xl sm:text-5xl tracking-tight">
+						The Right Plan For Your <span className="text-emerald-400">Intel.</span>
+					</h2>
+					<p className="mt-4 text-sm text-white/60 max-w-md mx-auto">
+						Start Free And Scale As Your Intelligence Needs Grow. Cancel Any Time.
+					</p>
+				</div>
+				<PricingCards onSelectPlan={handleSelectPlan} />
+				<div className="mt-10 text-center">
+					<a
+						href="/pricing"
+						className="font-[family-name:var(--font-fira-code)] text-xs tracking-wider text-emerald-400 hover:text-emerald-300 transition-colors"
+					>
+						View Full Plan Comparison →
+					</a>
+				</div>
+			</div>
+		</section>
+	);
+}
+
 /* ───────────────────────── Main Export ───────────────────────── */
 export function Marketing() {
 	return (
@@ -703,6 +753,7 @@ export function Marketing() {
 			<Navbar />
 			<Hero />
 			<Features />
+			<PricingSection />
 			<FAQ />
 			<FooterCTA />
 			<Footer />

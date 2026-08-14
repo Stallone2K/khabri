@@ -6,6 +6,13 @@ import { getAuthenticatedUserId } from "@/lib/api-auth";
 import { gemini } from "@/lib/gemini";
 import { buildTrendEnginePrompt } from "@/lib/prompts";
 import { enrichSignals } from "@/lib/ingestion/signal-enricher";
+import {
+  chargeCredits,
+  refundCredits,
+  CREDIT_COSTS,
+  InsufficientCreditsError,
+  insufficientCreditsBody,
+} from "@/lib/credits";
 
 // ---------------------------------------------------------------------------
 // RSS PARSER
@@ -248,6 +255,7 @@ ${signalText}`;
     );
   } catch (error: any) {
     console.error("[INGEST] Background pipeline error:", error);
+    throw error;
   }
 }
 
@@ -270,10 +278,32 @@ export async function POST() {
   const userCountryCode = user?.countryCode || null;
   const userCategories = user?.preferredCategories || [];
 
+  let charged = 0;
+  try {
+    charged = await chargeCredits(userId, CREDIT_COSTS.INGEST_SCAN, {
+      reason: "ingest_scan",
+      refType: "IngestRun",
+    });
+  } catch (err) {
+    if (err instanceof InsufficientCreditsError) {
+      return NextResponse.json(insufficientCreditsBody(), { status: 402 });
+    }
+    throw err;
+  }
+
   // Pipeline runs AFTER response is sent
   after(async () => {
-    await runPipeline(userId, userCountryCode, userCategories);
+    try {
+      await runPipeline(userId, userCountryCode, userCategories);
+    } catch {
+      if (charged > 0) {
+        await refundCredits(userId, charged, {
+          reason: "refund",
+          refType: "IngestRun",
+        }).catch((e) => console.error("[INGEST] Refund failed:", e));
+      }
+    }
   });
 
-  return NextResponse.json({ started: true });
+  return NextResponse.json({ started: true, creditsCharged: charged });
 }

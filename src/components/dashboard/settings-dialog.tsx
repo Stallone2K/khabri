@@ -25,7 +25,11 @@ import {
 	MapPin,
 	CreditCard,
 	HelpCircle,
+	ArrowUpRight,
 } from "lucide-react";
+import { useSubscription } from "@/hooks/use-subscription";
+import { PlanBadge } from "@/components/subscription/plan-badge";
+import { UsageMeter } from "@/components/subscription/usage-meter";
 
 type Section = "profile" | "categories" | "appearance" | "billing" | "help" | "danger";
 
@@ -378,33 +382,105 @@ function AppearanceSection() {
 }
 
 function BillingSection() {
+	const { data, loading, refresh } = useSubscription();
+	const [redeemCode, setRedeemCode] = useState("");
+	const [redeeming, setRedeeming] = useState(false);
+
+	const handleRedeem = async () => {
+		if (!redeemCode.trim()) return;
+		setRedeeming(true);
+		try {
+			const res = await fetch("/api/subscription/redeem", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ code: redeemCode.trim() }),
+			});
+			const result = await res.json();
+			if (!res.ok) {
+				toast.error(result.error || "Failed to redeem code");
+				return;
+			}
+			toast.success(result.message || "Code redeemed successfully!");
+			setRedeemCode("");
+			refresh();
+		} catch {
+			toast.error("Failed to redeem code");
+		} finally {
+			setRedeeming(false);
+		}
+	};
+
+	if (loading || !data) {
+		return <p className="text-sm text-muted-foreground">Loading...</p>;
+	}
+
 	return (
 		<div className="space-y-6">
 			<div>
 				<h3 className="text-base font-semibold">Billing & Usage</h3>
 				<p className="text-[13px] text-muted-foreground mt-0.5">
-					Monitor Your API Usage And Plan Details
+					Monitor Your Usage And Plan Details
 				</p>
 			</div>
 
+			{/* Current Plan */}
 			<div className="rounded-md border px-4 py-3 space-y-3">
 				<div className="flex items-center justify-between">
 					<p className="text-[13px] font-medium">Current Plan</p>
-					<span className="text-xs font-medium bg-accent px-2 py-0.5 rounded">Free</span>
+					<PlanBadge planSlug={data.plan.slug} planName={data.plan.name} />
 				</div>
-				<p className="text-xs text-muted-foreground">
-					You Are On The Free Tier With Access To All Core Features.
-				</p>
+				{data.subscription.currentPeriodEnd && (
+					<p className="text-xs text-muted-foreground">
+						{data.subscription.status === "ACTIVE"
+							? `Renews on ${new Date(data.subscription.currentPeriodEnd).toLocaleDateString()}`
+							: `Expires on ${new Date(data.subscription.currentPeriodEnd).toLocaleDateString()}`}
+					</p>
+				)}
+				{data.plan.slug === "free" && (
+					<a
+						href="/pricing"
+						className="inline-flex items-center gap-1 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:bg-foreground/90 transition-colors"
+					>
+						Upgrade Plan
+						<ArrowUpRight className="h-3 w-3" />
+					</a>
+				)}
 			</div>
 
+			{/* Usage Meters */}
 			<div className="rounded-md border px-4 py-3 space-y-3">
-				<p className="text-[13px] font-medium">API Usage</p>
-				<div className="flex items-center justify-between text-xs text-muted-foreground">
-					<span>Requests Today</span>
-					<span className="font-mono">0 / 100</span>
-				</div>
-				<div className="h-1.5 rounded-full bg-muted overflow-hidden">
-					<div className="h-full w-0 rounded-full bg-foreground/50" />
+				<p className="text-[13px] font-medium">Usage</p>
+				<UsageMeter label="Sources" current={data.usage.currentSources} max={data.limits.maxSources} />
+				<UsageMeter label="Tracked Trends" current={data.usage.currentProjects} max={data.limits.maxProjects} />
+				<UsageMeter label="Articles" current={data.usage.currentArticles} max={data.limits.maxArticles} />
+				<UsageMeter label="API Keys" current={data.usage.currentApiKeys} max={data.limits.maxApiKeys} />
+				<UsageMeter label="API Calls Today" current={data.usage.apiCallsToday} max={data.limits.maxApiCallsPerDay} />
+				<UsageMeter label="Webhooks" current={data.usage.currentWebhooks} max={data.limits.maxWebhooks} />
+			</div>
+
+			{/* Redeem Code */}
+			<div className="rounded-md border px-4 py-3 space-y-3">
+				<p className="text-[13px] font-medium">Redeem Code</p>
+				<p className="text-xs text-muted-foreground">
+					Have a promo code? Enter it below to upgrade your plan.
+				</p>
+				<div className="flex gap-2">
+					<input
+						type="text"
+						value={redeemCode}
+						onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
+						placeholder="KHABRI-XXXX-XXXX"
+						className="flex-1 rounded-md border bg-transparent px-3 py-1.5 text-sm font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+						onKeyDown={(e) => e.key === "Enter" && handleRedeem()}
+					/>
+					<Button
+						size="sm"
+						className="h-8 text-xs"
+						onClick={handleRedeem}
+						disabled={redeeming || !redeemCode.trim()}
+					>
+						{redeeming ? "Redeeming..." : "Redeem"}
+					</Button>
 				</div>
 			</div>
 		</div>

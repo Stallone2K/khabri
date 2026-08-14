@@ -14,7 +14,7 @@ interface SummaryCardProps {
   onClick?: (asset: MarketAsset) => void;
 }
 
-function SummaryCard({ label, asset, loading, prefix = "$", onClick }: SummaryCardProps) {
+function SummaryCard({ label, asset, loading, prefix, onClick }: SummaryCardProps) {
   if (loading || !asset) {
     return (
       <Card>
@@ -48,7 +48,7 @@ function SummaryCard({ label, asset, loading, prefix = "$", onClick }: SummaryCa
         <div className="flex items-end justify-between gap-2">
           <div>
             <div className="text-xl font-bold font-mono">
-              {prefix}
+              {prefix ?? asset.currencyPrefix ?? "$"}
               {asset.price >= 1000
                 ? asset.price.toLocaleString("en-US", {
                     maximumFractionDigits: 0,
@@ -111,7 +111,6 @@ export function MarketSummaryCards({
         label={localCurrencyLabel}
         asset={localCurrency}
         loading={loading}
-        prefix=""
         onClick={onAssetClick}
       />
     </div>

@@ -54,6 +54,24 @@ model User {
   rankedTrends  RankedTrend[]
   apiKeys       ApiKey[]
   webhooks      Webhook[]
+  subscription  Subscription?
+  creditBalance Int              @default(0) // kept in sync with CreditLedger via transactions
+  ledger        CreditLedger[]
+}
+
+// Append-only journal of every credit movement. User.creditBalance is the
+// cached sum — both are always written in the same transaction (src/lib/credits.ts).
+model CreditLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta     Int      // +grant / -spend
+  reason    String   // "signup_grant", "ingest_scan", "narrative_discovery", "api_usage", "monthly_grant", "redeem_grant", "refund"
+  refType   String?  // "IngestRun" | "Project" | "ApiKey" | "RedeemCode" | "Plan"
+  refId     String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model VerificationToken {
@@ -114,6 +132,7 @@ model UserArticleState {
   article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
   isRead    Boolean @default(false)
   isSaved   Boolean @default(false)
+  isLiked   Boolean @default(false)
   readAt    DateTime?
   @@id([userId, articleId])
 }
@@ -482,5 +501,92 @@ model WebhookEvent {
 
   @@index([eventType, userId, createdAt])
   @@index([createdAt])
+}
+
+// ==============================================================================
+// PRICING & SUBSCRIPTIONS
+// ==============================================================================
+
+model Plan {
+  id            String   @id @default(cuid())
+  slug          String   @unique // "free", "pro", "enterprise", "unlimited"
+  name          String           // "Free", "Pro", "Enterprise", "Unlimited"
+  description   String?
+
+  priceMonthly  Int      @default(0) // paise (49900 = ₹499)
+  priceYearly   Int      @default(0) // paise (499900 = ₹4,999)
+
+  // Limits (-1 means unlimited)
+  maxSources         Int     @default(5)
+  maxProjects        Int     @default(2)
+  maxArticles        Int     @default(500)
+  maxApiKeys         Int     @default(1)
+  maxApiCallsPerDay  Int     @default(100)
+  maxWebhooks        Int     @default(0)
+  maxNarrativePerDay Int     @default(1)
+  hasMarketFull      Boolean @default(false)
+  hasExport          Boolean @default(false)
+
+  subscriptions Subscription[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Subscription {
+  id        String @id @default(cuid())
+  userId    String @unique
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    String
+  plan      Plan   @relation(fields: [planId], references: [id])
+
+  status    String @default("ACTIVE")  // ACTIVE, CANCELLED, PAST_DUE, EXPIRED
+  source    String @default("FREE")    // FREE, RAZORPAY, REDEEM_CODE
+
+  // Razorpay fields (null for free/redeem)
+  razorpayCustomerId     String?
+  razorpaySubscriptionId String? @unique
+  razorpayPlanId         String?
+
+  // Redeem code reference
+  redeemCodeId String?
+  redeemCode   RedeemCode? @relation(fields: [redeemCodeId], references: [id])
+
+  currentPeriodStart DateTime  @default(now())
+  currentPeriodEnd   DateTime?
+  cancelledAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([razorpaySubscriptionId])
+}
+
+model RedeemCode {
+  id        String    @id @default(cuid())
+  code      String    @unique // e.g., "KHABRI-A7KX-M2PF"
+  label     String?           // admin note: "For Mom", "For Raj"
+  planSlug  String    @default("unlimited")
+  maxUses   Int       @default(1)
+  useCount  Int       @default(0)
+  isActive  Boolean   @default(true)
+  expiresAt DateTime?
+
+  subscriptions Subscription[]
+  redemptions   Redemption[]
+
+  createdBy String // userId of admin
+  createdAt DateTime @default(now())
+}
+
+model Redemption {
+  id           String     @id @default(cuid())
+  redeemCodeId String
+  redeemCode   RedeemCode @relation(fields: [redeemCodeId], references: [id])
+  userId       String
+  redeemedAt   DateTime   @default(now())
+
+  @@unique([redeemCodeId, userId])
+  @@index([userId])
 }
 

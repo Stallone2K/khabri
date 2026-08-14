@@ -12,6 +12,7 @@ export interface MarketAsset {
   sparkline: number[];
   image?: string;
   type: "crypto" | "forex" | "stock";
+  currencyPrefix?: string; // e.g. "$", "₹", "£", "" for forex
   extra?: Record<string, unknown>;
 }
 
@@ -76,7 +77,7 @@ export function MarketRow({ asset, onClick }: MarketRowProps) {
       {/* Price + Change */}
       <div className="text-right shrink-0 min-w-[90px]">
         <div className="text-sm font-mono font-semibold">
-          ${formatPrice(asset.price)}
+          {asset.currencyPrefix ?? "$"}{formatPrice(asset.price)}
         </div>
         <div
           className={`flex items-center justify-end gap-0.5 text-xs ${

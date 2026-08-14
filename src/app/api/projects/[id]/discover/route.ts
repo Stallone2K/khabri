@@ -3,11 +3,21 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { discoverNarratives } from "@/lib/narrative-discovery";
+import {
+  chargeCredits,
+  refundCredits,
+  CREDIT_COSTS,
+  InsufficientCreditsError,
+  insufficientCreditsBody,
+} from "@/lib/credits";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let charged = 0;
+  let chargedUserId: string | null = null;
+  let chargedProjectId: string | null = null;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -23,6 +33,21 @@ export async function POST(
 
     if (!project) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    try {
+      charged = await chargeCredits(session.user.id, CREDIT_COSTS.NARRATIVE_DISCOVERY, {
+        reason: "narrative_discovery",
+        refType: "Project",
+        refId: id,
+      });
+      chargedUserId = session.user.id;
+      chargedProjectId = id;
+    } catch (err) {
+      if (err instanceof InsufficientCreditsError) {
+        return NextResponse.json(insufficientCreditsBody(), { status: 402 });
+      }
+      throw err;
     }
 
     // Update status to DISCOVERING
@@ -106,6 +131,13 @@ export async function POST(
     });
   } catch (error: unknown) {
     console.error("Narrative discovery failed:", error);
+    if (charged > 0 && chargedUserId) {
+      await refundCredits(chargedUserId, charged, {
+        reason: "refund",
+        refType: "Project",
+        refId: chargedProjectId ?? undefined,
+      }).catch((e) => console.error("Refund failed:", e));
+    }
     const message =
       error instanceof Error ? error.message : String(error);
     return NextResponse.json(

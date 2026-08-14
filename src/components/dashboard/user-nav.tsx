@@ -21,7 +21,7 @@ export const UserNav = () => {
 					<span className="text-xs leading-none text-muted-foreground">{user?.email}</span>
 				</div>
 			</div>
-			<Button variant="ghost" size="icon" onClick={() => signOut()}>
+			<Button variant="ghost" size="icon" onClick={() => signOut({ callbackUrl: "/" })}>
 				<LogOut className="h-4 w-4" />
 			</Button>
 		</div>
