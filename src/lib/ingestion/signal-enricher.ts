@@ -139,38 +139,46 @@ async function saveBatchResults(
   await prisma.$transaction(async (tx) => {
     for (const result of results) {
       // 1. Save entities
+      // Gemini occasionally omits name/keyword fields — drop those entries
+      // instead of letting one undefined crash the whole batch transaction.
       if (result.entities?.length > 0) {
-        const entityData = result.entities.map((e) => ({
-          signalId: result.id,
-          name: e.name.trim(),
-          type: e.type,
-          salience: clamp(e.salience, 0, 1),
-        }));
+        const entityData = result.entities
+          .filter((e) => e?.name && e?.type)
+          .map((e) => ({
+            signalId: result.id,
+            name: e.name.trim(),
+            type: e.type,
+            salience: clamp(e.salience, 0, 1),
+          }));
         await tx.signalEntity.createMany({ data: entityData });
         entityCount += entityData.length;
       }
 
       // 2. Save keywords (lowercased, trimmed)
       if (result.keywords?.length > 0) {
-        const keywordData = result.keywords.map((k) => ({
-          signalId: result.id,
-          keyword: k.keyword.toLowerCase().trim(),
-          weight: clamp(k.weight, 0, 1),
-        }));
+        const keywordData = result.keywords
+          .filter((k) => k?.keyword)
+          .map((k) => ({
+            signalId: result.id,
+            keyword: k.keyword.toLowerCase().trim(),
+            weight: clamp(k.weight, 0, 1),
+          }));
         await tx.signalKeyword.createMany({ data: keywordData });
         keywordCount += keywordData.length;
       }
 
       // 3. Save locations
       if (result.locations?.length > 0) {
-        const locationData = result.locations.map((l) => ({
-          signalId: result.id,
-          name: l.name.trim(),
-          locationType: l.type,
-          countryCode: l.countryCode?.toUpperCase() || null,
-          lat: null,
-          lng: null,
-        }));
+        const locationData = result.locations
+          .filter((l) => l?.name)
+          .map((l) => ({
+            signalId: result.id,
+            name: l.name.trim(),
+            locationType: l.type,
+            countryCode: l.countryCode?.toUpperCase() || null,
+            lat: null,
+            lng: null,
+          }));
         await tx.signalLocation.createMany({ data: locationData });
         locationCount += locationData.length;
       }
