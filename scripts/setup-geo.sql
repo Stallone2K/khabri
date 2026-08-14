@@ -18,3 +18,6 @@ CREATE INDEX IF NOT EXISTS location_geog_idx
 -- Case-insensitive gazetteer name matching (resolver hot path).
 CREATE INDEX IF NOT EXISTS location_name_lower_idx ON "Location" (LOWER(name));
 CREATE INDEX IF NOT EXISTS location_asciiname_lower_idx ON "Location" (LOWER("asciiName"));
+
+-- Alias overlap matching (resolver pass 2).
+CREATE INDEX IF NOT EXISTS location_aliases_gin_idx ON "Location" USING GIN (aliases);
