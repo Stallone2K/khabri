@@ -297,3 +297,16 @@ export const CRYPTO_WATCHLIST = [
   "avalanche-2",
   "polkadot",
 ];
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$", EUR: "€", GBP: "£", INR: "₹", JPY: "¥", CNY: "¥",
+  KRW: "₩", RUB: "₽", BRL: "R$", CAD: "C$", AUD: "A$", CHF: "Fr",
+  SGD: "S$", HKD: "HK$", AED: "د.إ", SAR: "﷼", TRY: "₺", MXN: "Mex$",
+  IDR: "Rp", THB: "฿", VND: "₫", PKR: "₨", BDT: "৳", NGN: "₦", ZAR: "R",
+};
+
+/** Display symbol for a currency code; falls back to the code itself. */
+export function getCurrencySymbol(currencyCode: string | undefined): string {
+  if (!currencyCode) return "$";
+  return CURRENCY_SYMBOLS[currencyCode.toUpperCase()] ?? `${currencyCode} `;
+}

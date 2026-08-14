@@ -6,6 +6,7 @@ import { TrendTable } from '@/components/dashboard/trend-table';
 import { TrendChart } from '@/components/dashboard/trend-chart';
 import { TrendTicker } from '@/components/dashboard/trend-ticker';
 import { useSidebarCollapsed } from '@/app/dashboard/layout';
+import { GlobeDashboard } from '@/components/globe/globe-dashboard';
 import { PanelRight } from 'lucide-react';
 import {
 	Radar,
@@ -167,6 +168,8 @@ export default function DashboardPage() {
 				</div>
 
 				<DashboardStats trigger={refreshTrigger} />
+
+				<GlobeDashboard />
 
 				<TrendChart trigger={refreshTrigger} selectedRank={selectedRank} onSelectRank={setSelectedRank} regionFilter={regionFilter} />
 
