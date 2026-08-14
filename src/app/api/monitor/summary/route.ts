@@ -4,8 +4,9 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/monitor/summary
- * Everything the Monitor's right rail needs in one read — all derived from
- * data, no hardcoded geographies. Pure DB aggregation, no LLM, <200ms.
+ * Situation-room data for the Monitor rail — what is HAPPENING, not internal
+ * telemetry: top developments (ranked trends), hotspots with momentum,
+ * global sentiment. Pure DB reads, no LLM, <200ms.
  */
 export async function GET() {
   const userId = await getAuthenticatedUserId();
@@ -13,41 +14,59 @@ export async function GET() {
 
   const now = Date.now();
   const h24 = new Date(now - 24 * 3_600_000);
-  const d7 = new Date(now - 7 * 24 * 3_600_000);
+  const h48 = new Date(now - 48 * 3_600_000);
 
   const [
     signals24h,
-    signals7d,
     anomalies,
-    topCountries,
-    topCategories,
+    latestBatch,
+    hotspots,
+    sentiment,
     lastSignal,
     lastCycle,
   ] = await Promise.all([
     prisma.signal.count({ where: { createdAt: { gte: h24 } } }),
-    prisma.signal.count({ where: { createdAt: { gte: d7 } } }),
     prisma.anomalyEvent.groupBy({
       by: ["severity"],
       where: { isResolved: false },
       _count: true,
     }),
-    prisma.$queryRaw<{ name: string; countryCode: string; count: bigint }[]>`
-      SELECT c."name", c."countryCode", COUNT(DISTINCT sl."signalId") AS count
-      FROM "Location" c
-      JOIN "Location" member ON member."countryCode" = c."countryCode"
-      JOIN "SignalLocation" sl ON sl."locationId" = member."id"
-      JOIN "Signal" s ON s."id" = sl."signalId"
-      WHERE c."type" = 'COUNTRY'
-        AND s."createdAt" > ${d7}
-      GROUP BY c."name", c."countryCode"
-      ORDER BY count DESC
-      LIMIT 8
+    // Top developments: newest ranked batch (any user's — global view)
+    prisma.$queryRaw<
+      { topic: string; score: number; category: string | null; region: string | null }[]
+    >`
+      SELECT "topic", "score", "category", "region"
+      FROM "RankedTrend"
+      WHERE "createdAt" = (SELECT MAX("createdAt") FROM "RankedTrend")
+      ORDER BY "rank" ASC
+      LIMIT 6
     `,
-    prisma.$queryRaw<{ category: string; count: bigint }[]>`
-      SELECT COALESCE("category", 'OTHER') AS category, COUNT(*) AS count
+    // Hotspots with momentum: 24h volume + delta vs the previous 24h
+    prisma.$queryRaw<
+      { name: string; countryCode: string; count24: bigint; prev24: bigint }[]
+    >`
+      WITH counts AS (
+        SELECT member."countryCode" AS cc,
+               COUNT(DISTINCT sl."signalId") FILTER (WHERE s."createdAt" >= ${h24}) AS count24,
+               COUNT(DISTINCT sl."signalId") FILTER (WHERE s."createdAt" >= ${h48} AND s."createdAt" < ${h24}) AS prev24
+        FROM "Location" member
+        JOIN "SignalLocation" sl ON sl."locationId" = member."id"
+        JOIN "Signal" s ON s."id" = sl."signalId"
+        WHERE s."createdAt" >= ${h48}
+        GROUP BY member."countryCode"
+      )
+      SELECT c."name", c."countryCode", counts.count24, counts.prev24
+      FROM counts
+      JOIN "Location" c ON c."countryCode" = counts.cc AND c."type" = 'COUNTRY'
+      WHERE counts.count24 > 2
+      ORDER BY counts.count24 DESC
+      LIMIT 7
+    `,
+    prisma.$queryRaw<{ sentiment: string; count: bigint }[]>`
+      SELECT "sentiment", COUNT(*) AS count
       FROM "Signal"
-      WHERE "createdAt" > ${h24}
-      GROUP BY 1 ORDER BY 2 DESC LIMIT 6
+      WHERE "createdAt" >= ${h24} AND "sentiment" IS NOT NULL
+      GROUP BY "sentiment"
     `,
     prisma.signal.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     prisma.regionTrendCache.findFirst({
@@ -59,24 +78,48 @@ export async function GET() {
   const severityCounts: Record<string, number> = {};
   for (const a of anomalies) severityCounts[a.severity] = a._count;
 
-  const maxCountry = Number(topCountries[0]?.count ?? 1);
+  const sentimentCounts: Record<string, number> = {};
+  let sentimentTotal = 0;
+  for (const s of sentiment) {
+    sentimentCounts[s.sentiment] = Number(s.count);
+    sentimentTotal += Number(s.count);
+  }
+  const pct = (k: string) =>
+    sentimentTotal ? Math.round(((sentimentCounts[k] ?? 0) / sentimentTotal) * 100) : 0;
+
+  const maxHot = Number(hotspots[0]?.count24 ?? 1);
 
   return NextResponse.json({
     signals24h,
-    signals7d,
     anomalies: {
       critical: severityCounts.CRITICAL ?? 0,
       high: severityCounts.HIGH ?? 0,
       elevated: severityCounts.ELEVATED ?? 0,
       total: Object.values(severityCounts).reduce((a, b) => a + b, 0),
     },
-    topLocations: topCountries.map((c) => ({
-      name: c.name,
-      countryCode: c.countryCode,
-      count: Number(c.count),
-      pct: Math.round((Number(c.count) / maxCountry) * 100),
+    topDevelopments: latestBatch.map((t, i) => ({
+      rank: i + 1,
+      topic: t.topic,
+      score: t.score,
+      category: t.category,
     })),
-    topCategories: topCategories.map((c) => ({ name: c.category, count: Number(c.count) })),
+    hotspots: hotspots.map((h) => {
+      const cur = Number(h.count24);
+      const prev = Number(h.prev24);
+      return {
+        name: h.name,
+        countryCode: h.countryCode,
+        count: cur,
+        pct: Math.round((cur / maxHot) * 100),
+        deltaPct: prev > 0 ? Math.round(((cur - prev) / prev) * 100) : cur > 0 ? 100 : 0,
+      };
+    }),
+    sentiment: {
+      negative: pct("NEGATIVE"),
+      neutral: pct("NEUTRAL") + pct("MIXED"),
+      positive: pct("POSITIVE"),
+      sampled: sentimentTotal,
+    },
     lastSignalAt: lastSignal?.createdAt ?? null,
     lastCycleAt: lastCycle?.computedAt ?? null,
   });

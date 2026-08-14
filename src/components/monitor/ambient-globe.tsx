@@ -2,19 +2,21 @@
 
 /**
  * Ambient data-sculpture globe — the Shopify Live View model, terminal-dark.
- * Dot-matrix continents sampled from BUNDLED land topology (d3-geo
- * point-in-polygon — zero network deps, no h3), signal heat as glowing
- * points, anomalies as spikes + pulse rings. Not navigational: it rotates
- * and breathes; interaction lives in the rail around it.
+ *
+ * Continent dot-matrix: PREGENERATED land dots (land-dots.json, built by the
+ * d3-geo sampler offline) rendered as ONE THREE.Points cloud — a single GPU
+ * draw call, zero main-thread geometry work. Signal heat and anomaly spikes
+ * use globe.gl's point/ring layers (hundreds of items, cheap).
+ *
+ * Not navigational: it rotates and breathes; interaction lives in the rail.
  */
 import { useEffect, useRef } from "react";
 import Globe from "globe.gl";
-import { feature } from "topojson-client";
-import { geoContains } from "d3-geo";
-import countriesTopo from "world-atlas/countries-110m.json";
+import * as THREE from "three";
+import landDots from "./land-dots.json";
 
 const GREEN = "#3dff8f";
-const DOT_STEP_DEG = 1.4; // land dot grid density
+const GLOBE_RADIUS = 100; // globe.gl world units
 
 interface HeatPoint {
   lat: number;
@@ -40,29 +42,46 @@ const SEVERITY_COLOR: Record<string, string> = {
   ELEVATED: "#ffd23b",
 };
 
-/** Sample the landmass into a dot grid once per session. */
-function buildLandDots(): { lat: number; lng: number }[] {
-  const land = feature(countriesTopo as any, (countriesTopo as any).objects.land) as any;
-  const dots: { lat: number; lng: number }[] = [];
-  for (let lat = -58; lat <= 78; lat += DOT_STEP_DEG) {
-    for (let lng = -180; lng < 180; lng += DOT_STEP_DEG) {
-      if (geoContains(land, [lng, lat])) dots.push({ lat, lng });
-    }
-  }
-  return dots;
+function latLngToVec3(lat: number, lng: number, radius: number): [number, number, number] {
+  const phi = ((90 - lat) * Math.PI) / 180;
+  const theta = ((90 - lng) * Math.PI) / 180;
+  return [
+    radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta),
+  ];
+}
+
+/** One Points cloud for all land dots — built once, single draw call. */
+function buildLandCloud(): THREE.Points {
+  const positions = new Float32Array(landDots.length * 3);
+  (landDots as [number, number][]).forEach(([lat, lng], i) => {
+    const [x, y, z] = latLngToVec3(lat, lng, GLOBE_RADIUS + 0.4);
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({
+    color: new THREE.Color(GREEN),
+    size: 1.35,
+    transparent: true,
+    opacity: 0.45,
+    sizeAttenuation: true,
+    depthWrite: false,
+  });
+  return new THREE.Points(geometry, material);
 }
 
 export function AmbientGlobe({ heat, anomalies }: AmbientGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<any>(null);
-  const landDotsRef = useRef<{ lat: number; lng: number }[] | null>(null);
 
   // init once
   useEffect(() => {
     const el = containerRef.current;
     if (!el || globeRef.current) return;
-
-    if (!landDotsRef.current) landDotsRef.current = buildLandDots();
 
     const globe = new Globe(el)
       .backgroundColor("rgba(0,0,0,0)")
@@ -70,7 +89,7 @@ export function AmbientGlobe({ heat, anomalies }: AmbientGlobeProps) {
       .atmosphereColor(GREEN)
       .atmosphereAltitude(0.16)
       .pointsMerge(true)
-      .pointResolution(6) // thousands of dots — halve per-point triangles
+      .pointResolution(6)
       .pointLat("lat")
       .pointLng("lng")
       .pointColor("color")
@@ -91,6 +110,10 @@ export function AmbientGlobe({ heat, anomalies }: AmbientGlobeProps) {
     mat.emissive?.set?.("#010704");
     mat.shininess = 0.2;
 
+    // Land dot-matrix: one GPU point cloud
+    const landCloud = buildLandCloud();
+    globe.scene().add(landCloud);
+
     // Ambient behavior: slow rotation, no pan, gentle zoom bounds
     const controls = globe.controls() as any;
     controls.autoRotate = true;
@@ -109,23 +132,17 @@ export function AmbientGlobe({ heat, anomalies }: AmbientGlobeProps) {
 
     return () => {
       ro.disconnect();
+      landCloud.geometry.dispose();
+      (landCloud.material as THREE.Material).dispose();
       globe._destructor?.();
       globeRef.current = null;
     };
   }, []);
 
-  // data layers: land matrix + heat dots + anomaly spikes in one dataset
+  // data layers: heat dots + anomaly spikes (hundreds of items — cheap)
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe) return;
-
-    const landDots = (landDotsRef.current ?? []).map((d) => ({
-      lat: d.lat,
-      lng: d.lng,
-      color: "rgba(61, 255, 143, 0.28)",
-      altitude: 0.002,
-      radius: 0.32,
-    }));
 
     const maxCount = Math.max(1, ...heat.map((h) => h.count));
     const heatDots = heat.map((h) => ({
@@ -144,7 +161,7 @@ export function AmbientGlobe({ heat, anomalies }: AmbientGlobeProps) {
       radius: 0.22,
     }));
 
-    globe.pointsData([...landDots, ...heatDots, ...spikes]);
+    globe.pointsData([...heatDots, ...spikes]);
     globe.ringsData(
       anomalies.map((a) => ({
         lat: a.lat,

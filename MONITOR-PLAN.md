@@ -82,6 +82,36 @@ sparkline history (append-only RegionTrendCache history), region delta badges.
 v08.2026 globe rides the same engine as an alternate view; monetization merge
 (radius/region count as plan tiers).
 
+## Data catalog (researched vs worldmonitor.app, which is open-source: github.com/koala73/worldmonitor)
+
+WM's stack for reference: ACLED/UCDP conflicts, NASA FIRMS fires, USGS quakes,
+OpenSky flights, AISStream vessels, FRED/IMF/BIS macro, 500+ feeds, BGP/cable
+outage signals, per-country Instability Index (12 fused signals), maritime
+chokepoints, GPS jamming, satellites, AI briefs, keyword velocity.
+
+### Tier 1 — HAVE NOW (DB-only, user-selected 2026-08-15, all 8 locked)
+Rail core: Top Developments (ranked trends w/ scores, ≥85 = breaking red) ·
+Hotspots + momentum (24h volume + Δ vs prior day) · Trending entities
+(people/orgs from SignalEntity) · Anomaly Watch (live spikes; "baselines
+building" placeholder). Secondary: Sentiment gauge · Signal firehose ·
+Markets strip (existing APIs) · My-regions watchlist (precomputed cache).
+
+### Tier 2 — CHEAP DIFFERENTIATORS (in-house or free public APIs)
+- **Instability Index (in-house!)**: per-country composite from signals we
+  already fuse — volume Δ + negative-sentiment share + anomaly count + top
+  trend scores. WM's flagship metric, ours from existing data.
+- **Keyword velocity**: fastest-rising keywords 24h vs prior (SignalKeyword).
+- USGS earthquakes (free JSON, no key) → globe markers.
+- NASA FIRMS fires (free key) → globe layer.
+- GDELT events/tone (free) — global coverage baseline (already planned P2).
+- Cloudflare Radar internet outages (free key).
+
+### Tier 3 — BIG INTEGRATIONS (later)
+OpenSky military flights · AISStream vessels + chokepoint transit scoring ·
+ACLED/UCDP conflict events (license) · submarine cables/pipelines static
+layers + outage signals · satellite SGP4 orbital tracking · AI daily brief
+with citations · scenario/route tooling.
+
 ## What we already have (nothing this week was wasted)
 Gazetteer (285k places) · resolver at 92.8% · regional ranking engine +
 cache · hardened Gemini layer (pinned models, backoff, fallback chains) ·
