@@ -73,8 +73,9 @@ cache · hardened Gemini layer (pinned models, backoff, fallback chains) ·
 tile proxy + map styling · anomaly engine (window fixed) · enrichment fix ·
 headless screenshot verification loop.
 
-## Open decisions (user)
-1. Monitor replaces /dashboard, or lives at /monitor alongside the current page?
-2. Default precomputed regions — country + zones + top states OK?
-3. Deploy P0 (engine + current dropdown UI, instant everywhere) to prod before
-   P1 is done, or hold everything until the Monitor screen is complete?
+## Decisions (locked 2026-08-15)
+1. **Monitor replaces /dashboard.** Chart/table fold into it or sub-pages.
+2. **Precompute: country + all zones + top 10 states** by signal volume, plus
+   any region a user views joins the rotation automatically.
+3. **Single deploy: hold prod until the Monitor screen is done.** One big
+   visible change, shipped when it feels right.
