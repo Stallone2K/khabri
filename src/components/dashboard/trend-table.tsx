@@ -186,22 +186,26 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 				throw new Error(data.error || "Failed");
 			}
 
-			// Poll for new trends every 5s — spinner stays until trends arrive
+			// Poll the classic list (batch detection) every 5s — geo region values
+			// are not valid list filters, and regional views are cache-driven, so
+			// always poll unfiltered and re-run the active view once a new batch
+			// of ranked trends lands.
 			const initialCount = trends.length;
 			let pollCount = 0;
 			const pollInterval = setInterval(async () => {
 				pollCount++;
-				const regionParam = regionFilter && regionFilter !== "ALL" ? `&region=${regionFilter}` : "";
 				try {
-					const res = await fetch(`/api/trends/list?page=1&pageSize=30${regionParam}`);
+					const res = await fetch(`/api/trends/list?page=1&pageSize=30`);
 					if (res.ok) {
 						const data = await res.json();
-						setTrends(data.trends);
-						setPagination(data.pagination);
-						if (data.pagination.totalCount > initialCount || pollCount >= 24) {
+						const hasNewBatch = data.pagination.totalCount > initialCount;
+						if (hasNewBatch || pollCount >= 24) {
 							clearInterval(pollInterval);
 							setRefreshing(false);
-							if (data.pagination.totalCount > initialCount && onUpdate) onUpdate();
+							if (hasNewBatch) {
+								fetchTrends();
+								onUpdate?.();
+							}
 						}
 					}
 				} catch {
