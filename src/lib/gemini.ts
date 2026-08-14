@@ -33,25 +33,48 @@ async function callWithBackoff<T>(fn: () => Promise<T>): Promise<T> {
   throw lastErr;
 }
 
+function isCapacityError(err: unknown): boolean {
+  const e = err as { status?: number; message?: string };
+  return (
+    e?.status === 503 ||
+    /UNAVAILABLE|overloaded|high demand/i.test(String(e?.message ?? ""))
+  );
+}
+
 /**
  * Generate structured JSON from a prompt using Gemini.
  * Automatically strips markdown fences and parses JSON.
+ *
+ * `fallbackModels`: tried in order when a model stays overloaded (503) after
+ * backoff — capacity is per-model, rarely across the whole family, and large
+ * prompts are load-shed more aggressively than small ones.
  */
 export async function generateJSON<T = unknown>(
   model: string,
   prompt: string,
-  temperature = 0.2
+  temperature = 0.2,
+  fallbackModels: string[] = []
 ): Promise<T> {
-  const response = await callWithBackoff(() =>
-    gemini.models.generateContent({
-      model,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { responseMimeType: "application/json", temperature },
-    })
-  );
-
-  const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-  return JSON.parse(text.replace(/```json|```/g, "").trim());
+  const chain = [model, ...fallbackModels];
+  let lastErr: unknown;
+  for (let i = 0; i < chain.length; i++) {
+    try {
+      const response = await callWithBackoff(() =>
+        gemini.models.generateContent({
+          model: chain[i],
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: { responseMimeType: "application/json", temperature },
+        })
+      );
+      const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+      return JSON.parse(text.replace(/```json|```/g, "").trim());
+    } catch (err) {
+      lastErr = err;
+      if (i === chain.length - 1 || !isCapacityError(err)) throw err;
+      console.warn(`[GEMINI] ${chain[i]} overloaded, falling back to ${chain[i + 1]}`);
+    }
+  }
+  throw lastErr;
 }
 
 /**

@@ -3,7 +3,7 @@ import { after } from "next/server";
 import Parser from "rss-parser";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUserId } from "@/lib/api-auth";
-import { gemini } from "@/lib/gemini";
+import { generateJSON } from "@/lib/gemini";
 import { buildTrendEnginePrompt } from "@/lib/prompts";
 import { enrichSignals } from "@/lib/ingestion/signal-enricher";
 import {
@@ -215,20 +215,16 @@ ${signalText}`;
 
     console.log(`[INGEST] Sending ${signalsToRank.length} signals to Gemini for ranking`);
 
-    const response = await gemini.models.generateContent({
-      model: "gemini-flash-latest",
-      contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-      config: { responseMimeType: "application/json", temperature: 0.2 },
-    });
-
-    const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-    const jsonString = responseText.replace(/```json|```/g, "").trim();
-
     let rankedTrends: any[] = [];
     try {
-      rankedTrends = JSON.parse(jsonString);
-    } catch {
-      console.error("[INGEST] Failed to parse Gemini JSON:", responseText);
+      rankedTrends = await generateJSON<any[]>(
+        "gemini-3.5-flash",
+        finalPrompt,
+        0.2,
+        ["gemini-3.6-flash", "gemini-3.5-flash-lite"],
+      );
+    } catch (err: any) {
+      console.error("[INGEST] Ranking failed:", err?.message ?? err);
       return;
     }
 
@@ -262,6 +258,11 @@ ${signalText}`;
 // ---------------------------------------------------------------------------
 // ROUTE HANDLER — responds instantly, pipeline runs in background
 // ---------------------------------------------------------------------------
+
+// Process-level mutex: repeated scan clicks were stacking full 172-feed +
+// ranking pipelines in parallel (only enrichment had its own mutex).
+let pipelineInFlight = false;
+
 export async function POST() {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
@@ -269,6 +270,10 @@ export async function POST() {
       { error: "Unauthorized & No Fallback User Found" },
       { status: 401 },
     );
+  }
+
+  if (pipelineInFlight) {
+    return NextResponse.json({ started: false, alreadyRunning: true });
   }
 
   const user = await prisma.user.findUnique({
@@ -292,6 +297,7 @@ export async function POST() {
   }
 
   // Pipeline runs AFTER response is sent
+  pipelineInFlight = true;
   after(async () => {
     try {
       await runPipeline(userId, userCountryCode, userCategories);
@@ -302,6 +308,8 @@ export async function POST() {
           refType: "IngestRun",
         }).catch((e) => console.error("[INGEST] Refund failed:", e));
       }
+    } finally {
+      pipelineInFlight = false;
     }
   });
 

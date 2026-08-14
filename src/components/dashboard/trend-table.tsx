@@ -82,9 +82,27 @@ interface TrendTableProps {
 	regionFilter?: string;
 	onRegionChange?: (value: string) => void;
 	countryName?: string | null;
+	countryCode?: string | null;
 }
 
-export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, regionFilter = "ALL", onRegionChange, countryName }: TrendTableProps) {
+interface RegionOption {
+	code: string;
+	name: string;
+	signalCount: number;
+}
+interface ZoneOption {
+	key: string;
+	label: string;
+	signalCount: number;
+}
+
+// Geo selections are encoded into the dropdown value:
+// "ALL" | "INTERNATIONAL" — classic ranked list; "DOMESTIC" | "ZONE:<key>" |
+// "STATE:<admin1>" — geo-tagged regional ranking.
+const isGeoFilter = (v: string) =>
+	v === "DOMESTIC" || v.startsWith("ZONE:") || v.startsWith("STATE:");
+
+export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, regionFilter = "ALL", onRegionChange, countryName, countryCode }: TrendTableProps) {
 	const [trends, setTrends] = useState<Trend[]>([]);
 	const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 30, totalCount: 0, totalPages: 0 });
 	const [loading, setLoading] = useState(true);
@@ -92,24 +110,71 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 	const [sortKey, setSortKey] = useState<"rank" | "score" | "category" | "createdAt">("rank");
 	const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 	const [activeSpikes, setActiveSpikes] = useState<Map<string, { severity: string; zScore: number; type: string }>>(new Map());
+	const [states, setStates] = useState<RegionOption[]>([]);
+	const [zones, setZones] = useState<ZoneOption[]>([]);
+	const [regionNote, setRegionNote] = useState<string | null>(null);
 
-
+	// Populate the dropdown hierarchy for the user's country
+	useEffect(() => {
+		if (!countryCode) return;
+		fetch(`/api/geo/regions?country=${countryCode}`)
+			.then((res) => (res.ok ? res.json() : null))
+			.then((data) => {
+				if (!data) return;
+				setStates(data.states ?? []);
+				setZones(data.zones ?? []);
+			})
+			.catch(() => {});
+	}, [countryCode]);
 
 	const fetchTrends = useCallback(async (page: number = 1) => {
 		try {
-			const regionParam = regionFilter && regionFilter !== "ALL" ? `&region=${regionFilter}` : "";
-			const res = await fetch(`/api/trends/list?page=${page}&pageSize=30${regionParam}`);
-			if (res.ok) {
+			setLoading(true);
+			setRegionNote(null);
+			if (isGeoFilter(regionFilter) && countryCode) {
+				// Geo-tagged regional ranking (country / zone / state)
+				let param = "";
+				if (regionFilter.startsWith("ZONE:")) param = `&zone=${regionFilter.slice(5)}`;
+				if (regionFilter.startsWith("STATE:")) param = `&state=${regionFilter.slice(6)}`;
+				// Whole-country has plenty of fresh data; states/zones can be thin,
+				// so widen their window to match the dropdown's 30d counts.
+				const window = regionFilter === "DOMESTIC" ? "7d" : "30d";
+				const res = await fetch(`/api/trends/regional?country=${countryCode}${param}&window=${window}`);
 				const data = await res.json();
-				setTrends(data.trends);
-				setPagination(data.pagination);
+				if (res.ok) {
+					const rows = (data.trends ?? []).map((t: any) => ({
+						id: `rg-${t.rank}`,
+						rank: t.rank,
+						topic: t.topic,
+						score: t.score,
+						category: t.category,
+						region: data.region,
+						originalUrl: t.originalUrl ?? null,
+						createdAt: data.computedAt ?? new Date().toISOString(),
+					}));
+					setTrends(rows);
+					setPagination({ page: 1, pageSize: rows.length, totalCount: rows.length, totalPages: 1 });
+					if (data.insufficient) setRegionNote(data.message ?? "Low coverage for this region.");
+				} else {
+					setTrends([]);
+					setPagination({ page: 1, pageSize: 0, totalCount: 0, totalPages: 1 });
+					setRegionNote(data.error ?? "Regional ranking unavailable right now.");
+				}
+			} else {
+				const regionParam = regionFilter && regionFilter !== "ALL" ? `&region=${regionFilter}` : "";
+				const res = await fetch(`/api/trends/list?page=${page}&pageSize=30${regionParam}`);
+				if (res.ok) {
+					const data = await res.json();
+					setTrends(data.trends);
+					setPagination(data.pagination);
+				}
 			}
 		} catch (e) {
 			console.error(e);
 		} finally {
 			setLoading(false);
 		}
-	}, [regionFilter]);
+	}, [regionFilter, countryCode]);
 
 	const runPipeline = async () => {
 		setRefreshing(true);
@@ -121,22 +186,26 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 				throw new Error(data.error || "Failed");
 			}
 
-			// Poll for new trends every 5s — spinner stays until trends arrive
+			// Poll the classic list (batch detection) every 5s — geo region values
+			// are not valid list filters, and regional views are cache-driven, so
+			// always poll unfiltered and re-run the active view once a new batch
+			// of ranked trends lands.
 			const initialCount = trends.length;
 			let pollCount = 0;
 			const pollInterval = setInterval(async () => {
 				pollCount++;
-				const regionParam = regionFilter && regionFilter !== "ALL" ? `&region=${regionFilter}` : "";
 				try {
-					const res = await fetch(`/api/trends/list?page=1&pageSize=30${regionParam}`);
+					const res = await fetch(`/api/trends/list?page=1&pageSize=30`);
 					if (res.ok) {
 						const data = await res.json();
-						setTrends(data.trends);
-						setPagination(data.pagination);
-						if (data.pagination.totalCount > initialCount || pollCount >= 24) {
+						const hasNewBatch = data.pagination.totalCount > initialCount;
+						if (hasNewBatch || pollCount >= 24) {
 							clearInterval(pollInterval);
 							setRefreshing(false);
-							if (data.pagination.totalCount > initialCount && onUpdate) onUpdate();
+							if (hasNewBatch) {
+								fetchTrends();
+								onUpdate?.();
+							}
 						}
 					}
 				} catch {
@@ -242,7 +311,7 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 						<SelectTrigger className="h-8 text-xs w-auto min-w-0">
 							<SelectValue placeholder="Region" />
 						</SelectTrigger>
-						<SelectContent>
+						<SelectContent className="max-h-80">
 							<SelectItem value="ALL">
 								<span className="flex items-center gap-2">
 									<Layers className="h-3.5 w-3.5" />
@@ -261,6 +330,36 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 									International
 								</span>
 							</SelectItem>
+							{zones.length > 0 && (
+								<>
+									<div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+										Zones{countryName ? ` — ${countryName}` : ""}
+									</div>
+									{zones.map((z) => (
+										<SelectItem key={z.key} value={`ZONE:${z.key}`} disabled={z.signalCount === 0}>
+											<span className="flex w-full items-center justify-between gap-3">
+												{z.label}
+												<span className="text-[10px] text-muted-foreground">{z.signalCount}</span>
+											</span>
+										</SelectItem>
+									))}
+								</>
+							)}
+							{states.length > 0 && (
+								<>
+									<div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+										States{countryName ? ` — ${countryName}` : ""}
+									</div>
+									{states.map((s) => (
+										<SelectItem key={s.code} value={`STATE:${s.code}`}>
+											<span className="flex w-full items-center justify-between gap-3">
+												{s.name}
+												<span className="text-[10px] text-muted-foreground">{s.signalCount}</span>
+											</span>
+										</SelectItem>
+									))}
+								</>
+							)}
 						</SelectContent>
 					</Select>
 					<Button
@@ -286,7 +385,7 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 					</div>
 				) : trends.length === 0 ? (
 					<div className="flex items-center justify-center p-12 text-center">
-						<p className="text-muted-foreground">Scan To Find New Trends</p>
+						<p className="text-muted-foreground">{regionNote ?? "Scan To Find New Trends"}</p>
 					</div>
 				) : (
 					<>

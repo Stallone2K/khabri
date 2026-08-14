@@ -8,7 +8,7 @@ set -euo pipefail
 
 SSH_HOST="ShowNoMore"
 REMOTE_PSQL="sudo -u postgres psql -d khabri -t -A"
-LOCAL_PSQL="docker exec -i khabri-postgis psql -U khabri -d khabri_dev"
+LOCAL_PSQL="docker exec -i khabri-postgis psql -U khabri -d ${LOCAL_DB:-khabri_dev}"
 
 # table:excluded-columns (comma-separated; excluded = re-derived locally)
 TABLES=(

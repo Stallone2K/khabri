@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Parser from "rss-parser";
 import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/api-auth";
-import { gemini } from "@/lib/gemini";
+import { generateJSON } from "@/lib/gemini";
 import { buildTrendEnginePrompt } from "@/lib/prompts";
 import { enrichSignals } from "@/lib/ingestion/signal-enricher";
 import { emitEvent } from "@/lib/webhook-events";
@@ -291,24 +291,16 @@ ${signalText}`;
 
       console.log(`[CRON-INGEST] Ranking ${allSignalsToRank.length} signals for [${categories.join(", ")}] (${groupUsers.length} user(s))`);
 
-      const response = await gemini.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.2,
-        },
-      });
-
-      const responseText =
-        response.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-      const jsonString = responseText.replace(/```json|```/g, "").trim();
-
       let rankedTrends: any[] = [];
       try {
-        rankedTrends = JSON.parse(jsonString);
-      } catch (e) {
-        console.error(`[CRON-INGEST] Failed to parse Gemini JSON for [${categories.join(", ")}]:`, responseText);
+        rankedTrends = await generateJSON<any[]>(
+          "gemini-3.5-flash",
+          finalPrompt,
+          0.2,
+          ["gemini-3.6-flash", "gemini-3.5-flash-lite"],
+        );
+      } catch (e: any) {
+        console.error(`[CRON-INGEST] Ranking failed for [${categories.join(", ")}]:`, e?.message ?? e);
         continue;
       }
 

@@ -52,6 +52,7 @@ export default function DashboardPage() {
 					regionFilter={regionFilter}
 					onRegionChange={setRegionFilter}
 					countryName={country?.countryName || null}
+					countryCode={country?.countryCode || null}
 				/>
 			</div>
 		</div>
