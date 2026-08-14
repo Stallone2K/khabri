@@ -41,17 +41,25 @@ Recompose /dashboard as a dense grid (all pieces exist):
 ┌──────────────────────────────────────────────────────────────────┐
 │ TICKER (streams, region-aware)                        UTC clock  │
 ├──────────────────────────────┬───────────────┬───────────────────┤
-│ 2D WORLD MAP                 │ MY REGIONS    │ ANOMALY RAIL      │
-│ heat cells + anomaly pulses  │ IN · WEST ·   │ severity-sorted,  │
-│ (maplibre mercator, tile     │ GOA columns:  │ auto-resolve      │
-│  proxy already built)        │ top trends,   │ countdowns        │
-│ click cell → signals drawer  │ instant       │                   │
+│ AMBIENT 3D GLOBE             │ MY REGIONS    │ ANOMALY RAIL      │
+│ Shopify-Live-View style:     │ IN · WEST ·   │ severity-sorted,  │
+│ dot-matrix continents,       │ GOA columns:  │ auto-resolve      │
+│ signal dots by H3 density,   │ top trends,   │ countdowns        │
+│ anomaly spikes + pulse rings,│ instant       │                   │
+│ slow auto-rotate, seamless   │               │                   │
 ├──────────────────────────────┴───────────────┼───────────────────┤
 │ SIGNAL FIREHOSE (latest, streams in)         │ MARKETS strip     │
 └──────────────────────────────────────────────┴───────────────────┘
 ```
-- 2D map, not the globe: closer to WM's feel, lighter, and the globe branch
-  (v08.2026) remains the home of the 3D experience later
+- **Globe is AMBIENT, not navigational** (the Shopify Live View model, user's
+  reference image): three-globe/globe.gl — hex-dot continents from bundled
+  GeoJSON, NO tiles/labels/boundaries. Zero network deps (kills the tile-proxy
+  requirement for this screen). Signal dots sized by H3 cell counts, anomaly
+  spikes (altitude = z-score) + pulse rings, phosphor-green on black, slow
+  auto-rotation, glow halo. Drill-down lives in the rail/columns, not clicks
+  on the globe (hover tooltip at most).
+- The maplibre navigational globe stays parked on khabri-v08.2026 for the
+  future deep-navigation experience; tile proxy remains there.
 - Auto-refresh 60s; "new since last cycle" deltas per region column
 
 ### P2 — Deploy to prod
