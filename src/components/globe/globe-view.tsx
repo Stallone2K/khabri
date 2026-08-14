@@ -48,11 +48,28 @@ export function GlobeView({
       center: [20, 15],
       zoom: 1.6,
       attributionControl: { compact: true },
+      // TileJSON responses reference absolute upstream URLs — route every
+      // upstream request back through the same-origin /map-tiles proxy.
+      // Must stay absolute: MapLibre workers cannot parse relative URLs.
+      transformRequest: (url) =>
+        url.startsWith("https://tiles.openfreemap.org/")
+          ? {
+              url: url.replace(
+                "https://tiles.openfreemap.org/",
+                `${window.location.origin}/map-tiles/`,
+              ),
+            }
+          : undefined,
     });
     map.on("load", () => {
       loadedRef.current = true;
+      // Belt-and-braces: some MapLibre versions ignore style-level projection.
+      try {
+        (map as any).setProjection?.({ type: "globe" });
+      } catch { /* style projection already applied */ }
       map.resize();
     });
+    map.on("error", (e) => console.error("[GLOBE]", e.error?.message ?? e));
     map.on("click", (e) => {
       if (pickingRef.current) {
         pickRef.current(e.lngLat.lat, e.lngLat.lng);

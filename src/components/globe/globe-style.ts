@@ -6,10 +6,13 @@ export const GLOBE_GREEN = "#3dff8f";
 export const GLOBE_GREEN_DIM = "#1a7a4a";
 
 export function makeGlobeStyle(): any {
+  // MapLibre resolves TileJSON/glyph URLs against nothing — they must be
+  // absolute. Client-only component, so window is available.
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
   return {
     version: 8,
     projection: { type: "globe" },
-    glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+    glyphs: `${origin}/map-tiles/fonts/{fontstack}/{range}.pbf`,
     sky: {
       // Thin phosphor halo at the sphere's edge only — fog-ground-blend kept
       // near zero: higher values blanket the whole sphere and hide every layer.
@@ -22,7 +25,7 @@ export function makeGlobeStyle(): any {
       "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 0.45, 5, 0],
     },
     sources: {
-      ofm: { type: "vector", url: "https://tiles.openfreemap.org/planet" },
+      ofm: { type: "vector", url: `${origin}/map-tiles/planet` },
       heat: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
       radius: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
       anomalies: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
