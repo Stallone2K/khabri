@@ -1,4 +1,4 @@
-# Khabri v2 — Geo Globe Plan
+# Khabri v08.2026 — Geo Globe Plan
 
 The vision: after onboarding niche selection, the `/dashboard` becomes a Bloomberg-terminal-styled,
 green-on-black 3D globe. Signal density renders as green heatpoints. The user navigates, zooms to
@@ -50,7 +50,7 @@ computed from signals inside that radius. Works for any region on Earth.
 | Long-tail local news | Google News RSS geo/search feeds generated per radius | On-demand: coverage materializes where users actually look. |
 | Rust | Not for v1. Adopt via **martin** (Rust tile server) in Phase 3; candidate for a future ingestion worker if Node becomes the bottleneck | Honest answer: PostGIS is the performance win; a Rust rewrite now would slow the product down. |
 
-## 3. Schema Changes (khabri-v2)
+## 3. Schema Changes (khabri-v08.2026)
 
 ```prisma
 model Location {            // GeoNames-backed, replaces current seed
