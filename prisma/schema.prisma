@@ -57,6 +57,7 @@ model User {
   subscription  Subscription?
   creditBalance Int              @default(0) // kept in sync with CreditLedger via transactions
   ledger        CreditLedger[]
+  geoWatches    UserGeoWatch[]
 }
 
 // Append-only journal of every credit movement. User.creditBalance is the
@@ -207,6 +208,7 @@ model SignalLocation {
   countryCode  String?   // ISO 3166-1 alpha-2
   lat          Float?
   lng          Float?
+  h3Cell       String?   // H3 res-5 cell of (lat,lng) — heatmap + radius bucketing
 
   locationId   String?
   location     Location? @relation(fields: [locationId], references: [id])
@@ -214,6 +216,7 @@ model SignalLocation {
   @@index([signalId])
   @@index([countryCode])
   @@index([locationId])
+  @@index([h3Cell])
 }
 
 // ==============================================================================
@@ -223,7 +226,7 @@ model SignalLocation {
 model Location {
   id          String     @id @default(cuid())
   name        String
-  type        String     // REGION | COUNTRY | STATE | CITY
+  type        String     // REGION | COUNTRY | STATE | DISTRICT | CITY
   countryCode String?    // ISO 3166-1 alpha-2 (null for REGIONs)
   parentId    String?
   parent      Location?  @relation("LocationTree", fields: [parentId], references: [id])
@@ -233,12 +236,71 @@ model Location {
   lng         Float?
   createdAt   DateTime   @default(now())
 
+  // GeoNames gazetteer fields (null for hand-seeded legacy rows)
+  geonameId   Int?       @unique
+  asciiName   String?
+  admin1Code  String?    // state/province code within country
+  admin2Code  String?    // district/county code within admin1
+  population  Int        @default(0) // disambiguation weight: bigger wins
+
   signalLocations SignalLocation[]
 
   @@unique([name, type, parentId])
   @@index([parentId])
   @@index([type])
   @@index([countryCode])
+  @@index([countryCode, admin1Code])
+  @@index([name])
+}
+
+// ==============================================================================
+// GEO WATCHES & CACHES (v08.2026 globe)
+// ==============================================================================
+
+model UserGeoWatch {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String   // "Home", "Delhi NCR", ...
+  centerLat  Float
+  centerLng  Float
+  radiusKm   Int
+  h3Cells    String[] // res-5 cells covering the radius, precomputed on save
+  categories String[] @default([]) // niche filter; empty = all
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Radius trend ranking is a Gemini call — cache by the covering cell set so
+// overlapping watches (two users on the same city) share one computation.
+model GeoTrendCache {
+  id          String   @id @default(cuid())
+  cellSetHash String   // sha1 of sorted covering cells + category filter
+  window      String   // "6h" | "24h"
+  trends      Json
+  computedAt  DateTime @default(now())
+
+  @@unique([cellSetHash, window])
+  @@index([computedAt])
+}
+
+// On-demand ingestion spawned by user radii: generated Google News RSS queries
+// for places inside a watch. Ref-counted so abandoned areas stop being fetched.
+model GeoFeedWatch {
+  id          String    @id @default(cuid())
+  queryUrl    String    @unique
+  placeName   String
+  countryCode String?
+  h3Cell      String?
+  refCount    Int       @default(1)
+  isActive    Boolean   @default(true)
+  lastFetched DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([isActive, lastFetched])
 }
 
 model FeedCatalog {
