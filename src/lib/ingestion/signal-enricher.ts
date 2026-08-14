@@ -7,10 +7,14 @@ import type { Signal } from "@prisma/client";
 // CONFIG
 // ---------------------------------------------------------------------------
 const BATCH_SIZE = 20;
-// Pinned stable model: the "-latest" alias floats to whatever Google points it at
-// and has been serving 503 UNAVAILABLE in prod. Flash-lite is ~6x cheaper than
-// flash and sufficient for extraction (entities/keywords/locations/sentiment).
-const MODEL = "gemini-2.5-flash-lite";
+// Pinned stable model: the "-latest" alias floats to the newest (most overloaded)
+// model and has been serving 503 UNAVAILABLE in prod. NOTE: this key no longer
+// serves generateContent on 2.x model IDs — pick from /v1beta/models. Lite tier
+// is sufficient for extraction (entities/keywords/locations/sentiment) and cheap.
+const MODEL = "gemini-3.5-flash-lite";
+// If a batch exhausts retries on capacity errors, try once on the bigger sibling
+// before giving up — overload is per-model, rarely across the whole family.
+const FALLBACK_MODEL = "gemini-3.5-flash";
 const TEMPERATURE = 0.1;
 const INTER_BATCH_DELAY_MS = 500;
 const CHUNK_SIZE = 100; // signals fetched per DB round-trip inside a run
@@ -99,11 +103,17 @@ async function enrichBatch(signals: Signal[]): Promise<EnrichedSignalResult[]> {
 
   const prompt = `${SIGNAL_ENRICHER_PROMPT}\n\nSIGNALS TO ENRICH (${signals.length} total):\n${signalText}`;
 
-  const results = await generateJSON<EnrichedSignalResult[]>(
-    MODEL,
-    prompt,
-    TEMPERATURE,
-  );
+  let results: EnrichedSignalResult[];
+  try {
+    results = await generateJSON<EnrichedSignalResult[]>(MODEL, prompt, TEMPERATURE);
+  } catch (error: any) {
+    const msg = String(error?.message ?? error);
+    if (error?.status !== 503 && !/UNAVAILABLE|overloaded|high demand/i.test(msg)) {
+      throw error;
+    }
+    console.warn(`[ENRICH] ${MODEL} unavailable, falling back to ${FALLBACK_MODEL}`);
+    results = await generateJSON<EnrichedSignalResult[]>(FALLBACK_MODEL, prompt, TEMPERATURE);
+  }
 
   // Validate: only keep results whose ID matches an input signal
   const signalIds = new Set(signals.map((s) => s.id));
