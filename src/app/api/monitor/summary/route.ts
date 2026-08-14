@@ -19,9 +19,12 @@ export async function GET() {
   const [
     signals24h,
     anomalies,
+    anomalyList,
     latestBatch,
     hotspots,
+    topEntities,
     sentiment,
+    firehose,
     lastSignal,
     lastCycle,
   ] = await Promise.all([
@@ -30,6 +33,12 @@ export async function GET() {
       by: ["severity"],
       where: { isResolved: false },
       _count: true,
+    }),
+    prisma.anomalyEvent.findMany({
+      where: { isResolved: false },
+      orderBy: [{ severity: "desc" }, { zScore: "desc" }],
+      take: 5,
+      select: { label: true, severity: true, zScore: true, currentValue: true },
     }),
     // Top developments: newest ranked batch (any user's — global view)
     prisma.$queryRaw<
@@ -62,12 +71,30 @@ export async function GET() {
       ORDER BY counts.count24 DESC
       LIMIT 7
     `,
+    // Trending entities: most-mentioned people/orgs in 24h
+    prisma.$queryRaw<{ name: string; type: string; count: bigint }[]>`
+      SELECT e."name", e."type", COUNT(DISTINCT e."signalId") AS count
+      FROM "SignalEntity" e
+      JOIN "Signal" s ON s."id" = e."signalId"
+      WHERE s."createdAt" >= ${h24}
+        AND e."type" IN ('PERSON', 'ORG', 'COMPANY', 'COUNTRY')
+      GROUP BY e."name", e."type"
+      HAVING COUNT(DISTINCT e."signalId") > 1
+      ORDER BY count DESC
+      LIMIT 8
+    `,
     prisma.$queryRaw<{ sentiment: string; count: bigint }[]>`
       SELECT "sentiment", COUNT(*) AS count
       FROM "Signal"
       WHERE "createdAt" >= ${h24} AND "sentiment" IS NOT NULL
       GROUP BY "sentiment"
     `,
+    // The wire: latest raw headlines
+    prisma.signal.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: { id: true, title: true, source: true, url: true, createdAt: true },
+    }),
     prisma.signal.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     prisma.regionTrendCache.findFirst({
       orderBy: { computedAt: "desc" },
@@ -114,12 +141,30 @@ export async function GET() {
         deltaPct: prev > 0 ? Math.round(((cur - prev) / prev) * 100) : cur > 0 ? 100 : 0,
       };
     }),
+    anomalyList: anomalyList.map((a) => ({
+      label: a.label,
+      severity: a.severity,
+      zScore: Math.round(a.zScore * 10) / 10,
+      count: a.currentValue,
+    })),
+    topEntities: topEntities.map((e) => ({
+      name: e.name,
+      type: e.type,
+      count: Number(e.count),
+    })),
     sentiment: {
       negative: pct("NEGATIVE"),
       neutral: pct("NEUTRAL") + pct("MIXED"),
       positive: pct("POSITIVE"),
       sampled: sentimentTotal,
     },
+    firehose: firehose.map((s) => ({
+      id: s.id,
+      title: s.title.replace(/^\[Traffic: [^\]]+\] /, ""),
+      source: s.source,
+      url: s.url,
+      createdAt: s.createdAt,
+    })),
     lastSignalAt: lastSignal?.createdAt ?? null,
     lastCycleAt: lastCycle?.computedAt ?? null,
   });

@@ -23,10 +23,13 @@ const AmbientGlobe = dynamic(
 
 export interface MonitorSummary {
   signals24h: number;
-  signals7d: number;
   anomalies: { critical: number; high: number; elevated: number; total: number };
-  topLocations: { name: string; countryCode: string; count: number; pct: number }[];
-  topCategories: { name: string; count: number }[];
+  topDevelopments: { rank: number; topic: string; score: number; category: string | null }[];
+  hotspots: { name: string; countryCode: string; count: number; pct: number; deltaPct: number }[];
+  topEntities: { name: string; type: string; count: number }[];
+  anomalyList: { label: string; severity: string; zScore: number; count: number }[];
+  sentiment: { negative: number; neutral: number; positive: number; sampled: number };
+  firehose: { id: string; title: string; source: string; url: string; createdAt: string }[];
   lastSignalAt: string | null;
   lastCycleAt: string | null;
 }
