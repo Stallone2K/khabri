@@ -11,13 +11,15 @@ export function makeGlobeStyle(): any {
     projection: { type: "globe" },
     glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
     sky: {
-      "sky-color": "#00120a",
-      "horizon-color": "#02291a",
-      "fog-color": "#000503",
-      "sky-horizon-blend": 0.6,
-      "horizon-fog-blend": 0.6,
-      "fog-ground-blend": 0.7,
-      "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 0.7, 6, 0.1],
+      // Thin phosphor halo at the sphere's edge only — fog-ground-blend kept
+      // near zero: higher values blanket the whole sphere and hide every layer.
+      "sky-color": "#000000",
+      "horizon-color": "#0f5c38",
+      "fog-color": "#020604",
+      "sky-horizon-blend": 0.8,
+      "horizon-fog-blend": 0.3,
+      "fog-ground-blend": 0.1,
+      "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 0.45, 5, 0],
     },
     sources: {
       ofm: { type: "vector", url: "https://tiles.openfreemap.org/planet" },
@@ -27,13 +29,13 @@ export function makeGlobeStyle(): any {
     },
     layers: [
       // Land = background, water drawn darker on top → coastlines pop.
-      { id: "bg-land", type: "background", paint: { "background-color": "#07130c" } },
+      { id: "bg-land", type: "background", paint: { "background-color": "#0c2015" } },
       {
         id: "water",
         type: "fill",
         source: "ofm",
         "source-layer": "water",
-        paint: { "fill-color": "#010806" },
+        paint: { "fill-color": "#02090a" },
       },
       {
         id: "boundary-country",
@@ -43,8 +45,8 @@ export function makeGlobeStyle(): any {
         filter: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]],
         paint: {
           "line-color": GLOBE_GREEN,
-          "line-opacity": 0.35,
-          "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.4, 6, 1.2],
+          "line-opacity": 0.5,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.6, 6, 1.4],
         },
       },
       {
@@ -109,8 +111,8 @@ export function makeGlobeStyle(): any {
         source: "heat",
         maxzoom: 9,
         paint: {
-          "heatmap-weight": ["interpolate", ["linear"], ["get", "count"], 1, 0.15, 50, 0.6, 500, 1],
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 0.8, 9, 2.5],
+          "heatmap-weight": ["interpolate", ["linear"], ["get", "count"], 1, 0.25, 50, 0.7, 500, 1],
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1.4, 9, 3],
           "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 8, 4, 22, 9, 40],
           "heatmap-color": [
             "interpolate", ["linear"], ["heatmap-density"],

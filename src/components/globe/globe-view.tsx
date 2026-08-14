@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Map as MapLibreMap, NavigationControl, type GeoJSONSource } from "maplibre-gl";
+import { Map as MapLibreMap, type GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { makeGlobeStyle, EMPTY_FC } from "./globe-style";
 import { circleFeature } from "@/lib/geo";
@@ -49,7 +49,6 @@ export function GlobeView({
       zoom: 1.6,
       attributionControl: { compact: true },
     });
-    map.addControl(new NavigationControl({ showCompass: false }), "bottom-left");
     map.on("load", () => {
       loadedRef.current = true;
       map.resize();
@@ -128,7 +127,6 @@ export function GlobeView({
     <div
       ref={containerRef}
       className={`h-full w-full ${picking ? "cursor-crosshair" : ""}`}
-      style={{ background: "#000503" }}
     />
   );
 }

@@ -111,9 +111,9 @@ export function GlobeDashboard() {
   }
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-sm border border-border lg:grid lg:h-[70vh] lg:min-h-[480px] lg:grid-cols-[1fr_300px]">
-      {/* ---------------- globe pane ---------------- */}
-      <div className="relative h-[55vh] min-h-[360px] lg:h-auto">
+    <div className="flex flex-col">
+      {/* ---------------- globe pane (seamless, full-bleed) ---------------- */}
+      <div className="relative h-[60vh] min-h-[400px] lg:h-[75vh]">
         <GlobeView
           heatData={heatData}
           anomalyData={anomalyData}
@@ -212,14 +212,19 @@ export function GlobeDashboard() {
 
         {/* heat legend */}
         {heatData?.properties && (
-          <div className="absolute bottom-2 right-2 hidden border border-border bg-black/70 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground md:block">
+          <div className="absolute bottom-2 left-2 hidden bg-black/50 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground md:block">
             {(heatData.properties as any).cells} cells · 7d signal density
           </div>
         )}
+
+        {/* trends rail — floats over the globe on desktop */}
+        <div className="absolute bottom-3 right-3 top-3 hidden w-[290px] flex-col border border-emerald-900/60 bg-black/75 backdrop-blur-sm lg:flex">
+          <RadiusTrendsPanel watchId={picking ? null : activeId} watchLabel={active?.label ?? null} />
+        </div>
       </div>
 
-      {/* ---------------- trends rail (right on desktop, below on mobile) ---------------- */}
-      <div className="h-[40vh] border-t border-border bg-background lg:h-auto lg:border-l lg:border-t-0">
+      {/* trends rail — below the globe on mobile */}
+      <div className="h-[40vh] border-t border-border bg-background lg:hidden">
         <RadiusTrendsPanel watchId={picking ? null : activeId} watchLabel={active?.label ?? null} />
       </div>
     </div>

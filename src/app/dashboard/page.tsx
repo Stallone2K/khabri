@@ -7,7 +7,6 @@ import { TrendChart } from '@/components/dashboard/trend-chart';
 import { TrendTicker } from '@/components/dashboard/trend-ticker';
 import { useSidebarCollapsed } from '@/app/dashboard/layout';
 import { GlobeDashboard } from '@/components/globe/globe-dashboard';
-import { TerminalStatStrip } from '@/components/globe/terminal-stat-strip';
 import { PanelRight } from 'lucide-react';
 
 // --- MAIN PAGE ---
@@ -42,8 +41,6 @@ export default function DashboardPage() {
 			</div>
 
 			<div className="flex flex-col gap-4 md:gap-6 p-4 md:p-8 w-full max-w-7xl mx-auto">
-				<TerminalStatStrip trigger={refreshTrigger} />
-
 				<GlobeDashboard />
 
 				<TrendChart trigger={refreshTrigger} selectedRank={selectedRank} onSelectRank={setSelectedRank} regionFilter={regionFilter} />
