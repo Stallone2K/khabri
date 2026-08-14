@@ -155,6 +155,12 @@ export function TrendTable({ onUpdate, selectedRank = null, onSelectRank, region
 					setTrends(rows);
 					setPagination({ page: 1, pageSize: rows.length, totalCount: rows.length, totalPages: 1 });
 					if (data.insufficient) setRegionNote(data.message ?? "Low coverage for this region.");
+					// Cold cache miss: the server computes in the background — poll
+					// briefly (the compute takes ~10-20s once, then it's cached).
+					if (data.computing) {
+						setRegionNote(data.message ?? "Computing this region…");
+						if (page < 8) setTimeout(() => fetchTrends(page + 1), 5000);
+					}
 				} else {
 					setTrends([]);
 					setPagination({ page: 1, pageSize: 0, totalCount: 0, totalPages: 1 });

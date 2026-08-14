@@ -58,9 +58,16 @@ Recompose /dashboard as a dense grid (all pieces exist):
   spikes (altitude = z-score) + pulse rings, phosphor-green on black, slow
   auto-rotation, glow halo. Drill-down lives in the rail/columns, not clicks
   on the globe (hover tooltip at most).
-- The maplibre navigational globe stays parked on khabri-v08.2026 for the
-  future deep-navigation experience; tile proxy remains there.
+- The maplibre navigational globe stays parked for a future deep-navigation
+  experience; tile proxy remains available.
 - Auto-refresh 60s; "new since last cycle" deltas per region column
+- **Layout (user, from Shopify Live View reference):** data/demographic cards
+  sit in a RIGHT RAIL beside the globe — "Signals last cycle", totals, top
+  states/locations with bar meters, anomaly summary. Globe owns the negative
+  space to its left.
+- **Separate /dashboard/signals page** (Shopify "Orders" analog): the full
+  trends/signals table with the hierarchical region dropdown moves there; the
+  dashboard itself stays a pure Live View.
 
 ### P2 — Deploy to prod
 Prepared and rehearsed already: merge → additive migration SQL → gazetteer

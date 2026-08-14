@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/api-auth";
 import { enrichSignals } from "@/lib/ingestion/signal-enricher";
 import { resolveSignalLocations } from "@/lib/ingestion/location-resolver";
+import { precomputeRegions } from "@/lib/regional-trends";
 export async function POST(req: Request) {
   // =========================================================================
   // 1. AUTHENTICATION — Cron secret or dev mode
@@ -34,10 +35,22 @@ export async function POST(req: Request) {
     console.log("[CRON/ENRICH] Running location resolution...");
     const resolverStats = await resolveSignalLocations(500);
 
+    // =========================================================================
+    // 4. PRECOMPUTE REGIONAL RANKINGS (MONITOR-PLAN P0)
+    // Runs here — after enrichment + resolution — so rankings always see the
+    // freshest geo-tagged signals. The UI only ever reads the cache.
+    // =========================================================================
+    console.log("[CRON/ENRICH] Precomputing regional rankings...");
+    const precomputeStats = await precomputeRegions().catch((e: any) => {
+      console.error("[CRON/ENRICH] Precompute failed:", e?.message ?? e);
+      return { computed: 0, failed: -1, skipped: 0 };
+    });
+
     return NextResponse.json({
       success: true,
       ...stats,
       locationResolution: resolverStats,
+      precompute: precomputeStats,
     });
   } catch (error: any) {
     console.error("[CRON/ENRICH] Fatal error:", error);

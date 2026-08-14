@@ -306,14 +306,17 @@ model GeoFeedWatch {
 // Regional trend rankings are a Gemini call — cache per (region, window) so
 // every viewer of "Goa / 7d" shares one computation.
 model RegionTrendCache {
-  id         String   @id @default(cuid())
-  regionKey  String   // e.g. "IN" | "IN:zone:WEST" | "IN:state:07"
-  window     String   // "24h" | "3d" | "7d"
-  trends     Json
-  computedAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  regionKey    String   // e.g. "IN" | "IN:zone:WEST" | "IN:state:07"
+  window       String   // "24h" | "3d" | "7d" | "30d"
+  trends       Json
+  signalCount  Int      @default(0)
+  computedAt   DateTime @default(now())
+  lastAccessAt DateTime @default(now())
 
   @@unique([regionKey, window])
   @@index([computedAt])
+  @@index([lastAccessAt])
 }
 
 model FeedCatalog {
