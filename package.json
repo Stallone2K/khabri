@@ -26,8 +26,10 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "d3-geo": "^3.1.1",
     "date-fns": "^4.1.0",
     "github-slugger": "^2.0.0",
+    "globe.gl": "^2.46.1",
     "google-trends-api": "^4.9.2",
     "h3-js": "^4.5.0",
     "lucide-react": "^0.525.0",
@@ -50,8 +52,10 @@
     "shiki": "^4.0.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
+    "topojson-client": "^3.1.0",
     "twitter-api-v2": "^1.24.0",
-    "vercel": "^50.28.0"
+    "vercel": "^50.28.0",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",

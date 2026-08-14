@@ -29,7 +29,8 @@ import {
 	Trash2,
 	Copy,
 	ExternalLink,
-	KeyRound
+	KeyRound,
+	Radar
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -273,7 +274,13 @@ export function AppSidebar({ className, collapsed, onToggleCollapse, onNavigate,
 					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
 						<Link href="/dashboard" onClick={onNavigate}>
 							<LayoutDashboard className="mr-3 h-4 w-4" />
-							<span className="text-sm font-medium">Overview</span>
+							<span className="text-sm font-medium">Live View</span>
+						</Link>
+					</Button>
+					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
+						<Link href="/dashboard/signals" onClick={onNavigate}>
+							<Radar className="mr-3 h-4 w-4" />
+							<span className="text-sm font-medium">Signals</span>
 						</Link>
 					</Button>
 					<Button variant="ghost" asChild className="w-full justify-start hover:bg-accent/50 h-9">
