@@ -15,10 +15,12 @@ export async function POST(req: Request) {
 
   try {
     // =========================================================================
-    // 2. RUN ENRICHMENT (max 100 signals per invocation)
+    // 2. RUN ENRICHMENT
+    // Cap of 2000/run: steady state needs ~400 per 3h cron cycle, the headroom
+    // lets a backlog drain within a few cycles without an unbounded run.
     // =========================================================================
     console.log("[CRON/ENRICH] Starting enrichment run...");
-    const stats = await enrichSignals(100);
+    const stats = await enrichSignals(2000);
 
     console.log(
       `[CRON/ENRICH] Complete: ${stats.enrichedCount} enriched, ` +
