@@ -25,18 +25,22 @@ export async function POST(req: Request) {
 
   try {
     const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    // Lookback MUST match the cron cadence (every 3h in the crontab). The old
+    // 1h window sampled a slice where enrichment hadn't landed yet, so the
+    // detector saw "no metrics" forever and never built baselines.
+    const windowHours = Number(process.env.ANOMALY_WINDOW_HOURS) || 3;
+    const windowStart = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
 
-    console.log("[ANOMALY] Starting anomaly detection...");
+    console.log(`[ANOMALY] Starting anomaly detection (${windowHours}h window)...`);
 
     // =========================================================================
     // 2. AGGREGATE — run all 4 queries in parallel
     // =========================================================================
     const [keywordCounts, entityCounts, countryCounts] =
       await Promise.all([
-        countKeywordsSince(prisma, oneHourAgo),
-        countEntitiesSince(prisma, oneHourAgo),
-        countCountriesSince(prisma, oneHourAgo),
+        countKeywordsSince(prisma, windowStart),
+        countEntitiesSince(prisma, windowStart),
+        countCountriesSince(prisma, windowStart),
       ]);
 
     console.log(

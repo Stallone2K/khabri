@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { RadiusTrendsPanel } from "./radius-trends-panel";
+import { CellSignalsPanel } from "./cell-signals-panel";
 import { Crosshair, X, Check, Trash2 } from "lucide-react";
 
 const GlobeView = dynamic(() => import("./globe-view").then((m) => m.GlobeView), {
@@ -26,9 +27,11 @@ export function GlobeDashboard() {
   const [heatData, setHeatData] = useState<
     (GeoJSON.FeatureCollection & { properties?: { maxCount: number; cells: number } }) | null
   >(null);
+  const [anomalyData, setAnomalyData] = useState<GeoJSON.FeatureCollection | null>(null);
   const [watches, setWatches] = useState<GeoWatch[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ id: string; count: number } | null>(null);
 
   // radius-picking state
   const [picking, setPicking] = useState(false);
@@ -42,6 +45,10 @@ export function GlobeDashboard() {
       .then((r) => r.json())
       .then(setHeatData)
       .catch(() => setHeatData(null));
+    fetch("/api/geo/anomalies")
+      .then((r) => r.json())
+      .then(setAnomalyData)
+      .catch(() => setAnomalyData(null));
   }, []);
 
   const loadWatches = useCallback(async () => {
@@ -104,16 +111,22 @@ export function GlobeDashboard() {
   }
 
   return (
-    <div className="grid h-[70vh] min-h-[480px] grid-cols-1 overflow-hidden rounded-sm border border-border lg:grid-cols-[1fr_300px]">
+    <div className="flex flex-col overflow-hidden rounded-sm border border-border lg:grid lg:h-[70vh] lg:min-h-[480px] lg:grid-cols-[1fr_300px]">
       {/* ---------------- globe pane ---------------- */}
-      <div className="relative">
+      <div className="relative h-[55vh] min-h-[360px] lg:h-auto">
         <GlobeView
           heatData={heatData}
+          anomalyData={anomalyData}
           radius={radiusOnGlobe}
           picking={picking}
           onPickCenter={(lat, lng) => setDraft({ lat, lng })}
+          onCellClick={(id, count) => setSelectedCell({ id, count })}
           flyTo={flyTo}
         />
+
+        {selectedCell && !picking && (
+          <CellSignalsPanel cell={selectedCell} onClose={() => setSelectedCell(null)} />
+        )}
 
         {/* control strip */}
         <div className="absolute left-2 top-2 flex flex-wrap items-center gap-1.5">
@@ -205,8 +218,8 @@ export function GlobeDashboard() {
         )}
       </div>
 
-      {/* ---------------- trends rail ---------------- */}
-      <div className="hidden border-l border-border bg-background lg:block">
+      {/* ---------------- trends rail (right on desktop, below on mobile) ---------------- */}
+      <div className="h-[40vh] border-t border-border bg-background lg:h-auto lg:border-l lg:border-t-0">
         <RadiusTrendsPanel watchId={picking ? null : activeId} watchLabel={active?.label ?? null} />
       </div>
     </div>

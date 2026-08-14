@@ -1,135 +1,14 @@
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useUserCountry } from '@/hooks/use-user-country';
 import { TrendTable } from '@/components/dashboard/trend-table';
 import { TrendChart } from '@/components/dashboard/trend-chart';
 import { TrendTicker } from '@/components/dashboard/trend-ticker';
 import { useSidebarCollapsed } from '@/app/dashboard/layout';
 import { GlobeDashboard } from '@/components/globe/globe-dashboard';
+import { TerminalStatStrip } from '@/components/globe/terminal-stat-strip';
 import { PanelRight } from 'lucide-react';
-import {
-	Radar,
-	TriangleAlert,
-	RotateCw,
-	Thermometer,
-	ChevronsUp
-} from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-
-// --- HELPER: COOL TIME FORMATTER ---
-function formatCoolTimeAgo(dateString: string | null) {
-	if (!dateString) return "Idle";
-
-	const now = new Date();
-	const past = new Date(dateString);
-	const diffMs = now.getTime() - past.getTime();
-	const diffSec = Math.floor(diffMs / 1000);
-	const diffMin = Math.floor(diffSec / 60);
-	const diffHr = Math.floor(diffMin / 60);
-	const diffDays = Math.floor(diffHr / 24);
-
-	if (diffSec < 60) return "< 1 Min Ago";
-	if (diffMin < 60) return `${diffMin} Min Ago`;
-	if (diffHr < 24) return `${diffHr} Hr Ago`;
-	return `${diffDays} Days Ago`;
-}
-
-// --- STAT CARD ---
-function StatCard({ icon, label, value, subtitle, valueClass = "", span2 }: {
-	icon: ReactNode;
-	label: string;
-	value: string | number;
-	subtitle: string;
-	valueClass?: string;
-	span2?: boolean;
-}) {
-	const card = (
-		<Card>
-			<CardContent className="p-4">
-				<div className="flex items-center justify-between mb-3">
-					<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</span>
-					{icon}
-				</div>
-				<div className={`text-2xl font-bold truncate ${valueClass}`}>{value}</div>
-				<p className="text-[11px] text-muted-foreground mt-1">{subtitle}</p>
-			</CardContent>
-		</Card>
-	);
-
-	if (span2) {
-		return (
-			<div className="col-span-2 lg:col-span-1 flex justify-center">
-				<div className="w-[calc(50%-6px)]  lg:w-full">{card}</div>
-			</div>
-		);
-	}
-
-	return card;
-}
-
-// --- STATS COMPONENT ---
-function DashboardStats({ trigger }: { trigger: number }) {
-	const [stats, setStats] = useState<any>({
-		signalsProcessed: 0,
-		criticalTrends: 0,
-		lastUpdate: null,
-		activeProjects: 0,
-		avgScore: 0,
-		trendVelocity: 0
-	});
-	const [loading, setLoading] = useState(true);
-
-	useEffect(() => {
-		fetch('/api/dashboard/stats')
-			.then(res => res.json())
-			.then(data => {
-				setStats(data);
-				setLoading(false);
-			})
-			.catch(err => console.error(err));
-	}, [trigger]);
-
-	if (loading) return <div className="h-24 bg-muted animate-pulse rounded-xl"></div>;
-
-	return (
-		<div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-			<StatCard
-				icon={<Radar className="h-4 w-4 text-muted-foreground" />}
-				label="Scanned"
-				value={stats.signalsProcessed}
-				subtitle="Total Inputs (24H)"
-			/>
-			<StatCard
-				icon={<TriangleAlert className={`h-4 w-4 ${stats.criticalTrends > 0 ? "text-red-500" : "text-muted-foreground"}`} />}
-				label="Critical"
-				value={stats.criticalTrends}
-				subtitle="Score > 80"
-				valueClass={stats.criticalTrends > 0 ? "text-red-600" : ""}
-			/>
-			<StatCard
-				icon={<Thermometer className={`h-4 w-4 ${stats.avgScore > 75 ? "text-orange-500" : "text-blue-500"}`} />}
-				label="Temp"
-				value={`${stats.avgScore}°`}
-				subtitle={stats.avgScore > 75 ? "High Intensity" : "Normal Levels"}
-				valueClass={stats.avgScore > 75 ? "text-orange-600" : "text-blue-600"}
-			/>
-			<StatCard
-				icon={<ChevronsUp className="h-4 w-4 text-purple-500" />}
-				label="Velocity"
-				value={stats.trendVelocity}
-				subtitle="Signals / Hour"
-			/>
-			<StatCard
-				icon={<RotateCw className="h-4 w-4 text-muted-foreground" />}
-				label="Engine"
-				value={formatCoolTimeAgo(stats.lastUpdate)}
-				subtitle="Last Pipeline Run"
-				span2
-			/>
-		</div>
-	);
-}
 
 // --- MAIN PAGE ---
 export default function DashboardPage() {
@@ -162,12 +41,8 @@ export default function DashboardPage() {
 				</div>
 			</div>
 
-			<div className="flex flex-col gap-6 md:gap-8 p-4 md:p-8 w-full max-w-7xl mx-auto">
-				<div>
-					<h1 className="text-2xl md:text-3xl font-bold tracking-tight">Overview</h1>
-				</div>
-
-				<DashboardStats trigger={refreshTrigger} />
+			<div className="flex flex-col gap-4 md:gap-6 p-4 md:p-8 w-full max-w-7xl mx-auto">
+				<TerminalStatStrip trigger={refreshTrigger} />
 
 				<GlobeDashboard />
 

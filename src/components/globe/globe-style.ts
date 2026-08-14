@@ -23,6 +23,7 @@ export function makeGlobeStyle(): any {
       ofm: { type: "vector", url: "https://tiles.openfreemap.org/planet" },
       heat: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
       radius: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
+      anomalies: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
     },
     layers: [
       // Land = background, water drawn darker on top → coastlines pop.
@@ -122,14 +123,46 @@ export function makeGlobeStyle(): any {
         },
       },
       {
+        // Visible dots at high zoom; near-invisible hit-targets at low zoom so
+        // heatpoints are clickable everywhere.
         id: "heat-points",
         type: "circle",
         source: "heat",
-        minzoom: 6,
         paint: {
           "circle-color": GLOBE_GREEN,
-          "circle-opacity": 0.7,
-          "circle-radius": ["interpolate", ["linear"], ["get", "count"], 1, 2.5, 100, 9, 1000, 16],
+          "circle-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.25, 5, 0.4, 6, 0.7],
+          "circle-radius": [
+            "interpolate", ["linear"], ["zoom"],
+            0, ["interpolate", ["linear"], ["get", "count"], 1, 1.5, 500, 4],
+            6, ["interpolate", ["linear"], ["get", "count"], 1, 3, 100, 9, 1000, 16],
+          ],
+          "circle-stroke-color": "#000",
+          "circle-stroke-width": ["step", ["zoom"], 0, 6, 1],
+        },
+      },
+      {
+        id: "anomaly-halo",
+        type: "circle",
+        source: "anomalies",
+        paint: {
+          "circle-color": "#ff8c1a",
+          "circle-opacity": 0.18,
+          "circle-radius": ["interpolate", ["linear"], ["get", "zScore"], 1.5, 12, 3, 22, 6, 34],
+        },
+      },
+      {
+        id: "anomaly-core",
+        type: "circle",
+        source: "anomalies",
+        paint: {
+          "circle-color": [
+            "match", ["get", "severity"],
+            "CRITICAL", "#ff3b3b",
+            "HIGH", "#ff8c1a",
+            "#ffd23b",
+          ],
+          "circle-opacity": 0.9,
+          "circle-radius": 4,
           "circle-stroke-color": "#000",
           "circle-stroke-width": 1,
         },

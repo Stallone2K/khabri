@@ -8,16 +8,27 @@ import { circleFeature } from "@/lib/geo";
 
 export interface GlobeViewProps {
   heatData: GeoJSON.FeatureCollection | null;
+  anomalyData?: GeoJSON.FeatureCollection | null;
   /** Active or in-progress radius; null hides the ring. */
   radius: { lat: number; lng: number; km: number } | null;
   /** When true, clicks pick a new center instead of panning-only. */
   picking: boolean;
   onPickCenter: (lat: number, lng: number) => void;
+  /** Heatpoint drill-down. */
+  onCellClick?: (cell: string, count: number) => void;
   /** Fly the camera here when it changes (watch switch). */
   flyTo?: { lat: number; lng: number; zoom?: number } | null;
 }
 
-export function GlobeView({ heatData, radius, picking, onPickCenter, flyTo }: GlobeViewProps) {
+export function GlobeView({
+  heatData,
+  anomalyData,
+  radius,
+  picking,
+  onPickCenter,
+  onCellClick,
+  flyTo,
+}: GlobeViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const loadedRef = useRef(false);
@@ -25,6 +36,8 @@ export function GlobeView({ heatData, radius, picking, onPickCenter, flyTo }: Gl
   pickRef.current = onPickCenter;
   const pickingRef = useRef(picking);
   pickingRef.current = picking;
+  const cellClickRef = useRef(onCellClick);
+  cellClickRef.current = onCellClick;
 
   // init once
   useEffect(() => {
@@ -42,7 +55,19 @@ export function GlobeView({ heatData, radius, picking, onPickCenter, flyTo }: Gl
       map.resize();
     });
     map.on("click", (e) => {
-      if (pickingRef.current) pickRef.current(e.lngLat.lat, e.lngLat.lng);
+      if (pickingRef.current) {
+        pickRef.current(e.lngLat.lat, e.lngLat.lng);
+        return;
+      }
+      const hits = map.queryRenderedFeatures(e.point, { layers: ["heat-points"] });
+      const props = hits[0]?.properties as { cell?: string; count?: number } | undefined;
+      if (props?.cell) cellClickRef.current?.(props.cell, props.count ?? 0);
+    });
+    map.on("mouseenter", "heat-points", () => {
+      if (!pickingRef.current) map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", "heat-points", () => {
+      map.getCanvas().style.cursor = "";
     });
     mapRef.current = map;
     return () => {
@@ -63,6 +88,18 @@ export function GlobeView({ heatData, radius, picking, onPickCenter, flyTo }: Gl
     if (loadedRef.current) apply();
     else map.once("load", apply);
   }, [heatData]);
+
+  // anomaly layer updates
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () =>
+      (map.getSource("anomalies") as GeoJSONSource | undefined)?.setData(
+        (anomalyData ?? EMPTY_FC) as any,
+      );
+    if (loadedRef.current) apply();
+    else map.once("load", apply);
+  }, [anomalyData]);
 
   // radius ring updates
   useEffect(() => {
